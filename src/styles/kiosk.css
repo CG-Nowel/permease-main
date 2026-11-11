@@ -1,0 +1,74 @@
+/* ==========================================================================
+   PERMEASE KIOSK — TACTILE TOUCH INTERFACE STYLESHEET
+   Strict Kiosk Rules: No desktop baggage, zero scrollbars, min 64px targets
+   ========================================================================== */
+
+/* 1. Viewport & Body Isolation */
+.kiosk-surface {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: none;
+  cursor: default;
+}
+
+/* 2. Absolute Elimination of Scrollbars */
+.kiosk-surface,
+.kiosk-surface * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.kiosk-surface::-webkit-scrollbar,
+.kiosk-surface *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* 3. Touch Target Standards (Strict Minimum 64px x 64px) */
+.kiosk-target {
+  min-width: 64px !important;
+  min-height: 64px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 4. Elimination of Desktop Hover Baggage & Addition of Tactile Active Physics */
+.kiosk-surface button,
+.kiosk-surface .touch-interactive {
+  touch-action: manipulation;
+  transition: transform 70ms cubic-bezier(0.2, 0, 0, 1), filter 70ms ease-out;
+}
+
+/* On Touch/Kiosk surfaces, replace hover with tactile press */
+.kiosk-surface button:active,
+.kiosk-surface .touch-interactive:active {
+  transform: scale(0.96) translateZ(0) !important;
+  filter: brightness(1.15) !important;
+}
+
+/* 5. Hardware Acceleration Utilities */
+.kiosk-gpu-accelerated {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* 6. Gesture Canvas Isolation */
+.kiosk-gesture-canvas {
+  touch-action: none !important;
+  user-select: none !important;
+}

@@ -1,0 +1,47 @@
+Year Level,Term,Course Code,Course Description,Units,Pre-requisite(s)
+First Year,First Term,BUSS1001,Basic Microeconomics,3,
+First Year,First Term,GEDC1002,The Contemporary World,3,
+First Year,First Term,STIC1002,Euthenics 1,1,
+First Year,First Term,NSTP1008,National Service Training Program 1,3,
+First Year,First Term,PHED1001,Physical Education 1 (Physical Fitness & Conditioning),2,
+First Year,First Term,GEDC1006,Readings in Philippine History,3,
+First Year,First Term,GEDC1008,Understanding the Self,3,
+First Year,Second Term,GEDC1009,Ethics,3,
+First Year,Second Term,NSTP1010,National Service Training Program 2,3,
+First Year,Second Term,PHED1002,Physical Education 2 (Rhythmic Dancing),2,PHED1001
+First Year,Second Term,GEDC1016,Purposive Communication,3,
+First Year,Second Term,GEDC1013,"Science, Technology, and Society",3,
+First Year,Second Term,STIC1003,Computer Productivity Tools,1,
+First Year,Second Term,BUSS1004,Productivity and Quality Tools,3,
+Second Year,First Term,GEDC1003,The Entrepreneurial Mind,3,
+Second Year,First Term,GEDC1014,Rizal's Life and Works,3,
+Second Year,First Term,GEDC1005,Mathematics in the Modern World,3,
+Second Year,First Term,PHED1003,Physical Education 3 (Individual & Dual Sports),2,PHED1001
+Second Year,First Term,BUSS1005,Costing and Pricing,3,
+Second Year,First Term,BUSS1007,Facilities Management,3,
+Second Year,Second Term,BUSS1008,Business Law (Obligations and Contracts),3,
+Second Year,Second Term,BUSS1011,Taxation (Income Taxation),3,
+Second Year,Second Term,GEDC1041,Philippine Popular Culture,3,
+Second Year,Second Term,GEDC1010,Art Appreciation,3,
+Second Year,Second Term,PHED1004,Physical Education 4 (Team Sports),2,PHED1001
+Second Year,Second Term,BUSS1014,Logistics Management,3,
+Third Year,First Term,BUSS1015,Business Research,3,
+Third Year,First Term,BUSS1016,Good Governance and Social Responsibility,3,GEDC1009
+Third Year,First Term,BUSS1017,International Business and Trade,3,
+Third Year,First Term,CBMC1001,Operations Management (TQM),3,
+Third Year,First Term,BUSS1019,Managerial Accounting,3,BUSS1005
+Third Year,First Term,GEDC1045,Great Books,3,
+Third Year,Second Term,BUSS1009,Human Resource Management,3,
+Third Year,Second Term,CBMC1002,Strategic Management,3,
+Third Year,Second Term,INSY1007,Management Information System,3,
+Third Year,Second Term,BUSS1021,Environmental Management System,3,
+Third Year,Second Term,BUSS1022,Inventory Management and Control,3,BUSS1005; BUSS1014
+Third Year,Second Term,INTE1035,Project Management,3,
+Fourth Year,First Term,BUSS1024,Feasibility Study,3,INTE1035
+Fourth Year,First Term,BUSS1025,Entrepreneurial Management,3,
+Fourth Year,First Term,BUSS1020,Financial Management,3,
+Fourth Year,First Term,BUSS1026,Marketing Management,3,
+Fourth Year,First Term,STIC1007,Euthenics 2,1,STIC1002
+Fourth Year,First Term,BUSS1027,Special Topics in Operations Management,3,CBMC1001
+Fourth Year,Second Term,OJTC1005,Practicum (600 hours),6,4th year standing
+,,,Total Units,128,

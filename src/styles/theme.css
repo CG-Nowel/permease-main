@@ -1,0 +1,29 @@
+:root {
+  /* Institutional Brand Palette: Deep Navy & Royal Blue */
+  --color-navy-950: #050d1e;
+  --color-navy-900: #0b1b3d;
+  --color-navy-800: #122857;
+  --color-navy-700: #183777;
+  --color-blue-royal: #1e40af;
+  --color-blue-accent: #2563eb;
+
+  /* Metallic & Champagne Gold Accents */
+  --color-gold-metallic: #d4af37;
+  --color-gold-champagne: #f3e5ab;
+  --color-gold-dark: #aa851e;
+  --color-gold-light: #fef9e7;
+  --color-gold-amber: #e5b93b;
+
+  /* Typography */
+  --font-serif-brand: 'Cinzel', Georgia, serif;
+
+  /* Status Tokens */
+  --color-status-cleared: #10b981;
+  --color-status-balance: #ef4444;
+  --color-status-warning: #f59e0b;
+
+  /* Neutrals & Surfaces */
+  --color-bg-base: #f8fafc;
+  --color-bg-card: #ffffff;
+  --color-border-subtle: #e2e8f0;
+}

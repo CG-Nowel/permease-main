@@ -1,0 +1,72 @@
+@import './theme.css';
+@import './kiosk.css';
+
+@layer base {
+  body {
+    background-color: var(--color-bg-base);
+    color: #0f172a;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  /* Sharp enterprise styling: no rounded cards or tables */
+  table,
+  .table-container {
+    border-radius: 0px !important;
+  }
+
+  .font-serif-brand {
+    font-family: var(--font-serif-brand), 'Cinzel', Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+
+  .text-gold-metallic {
+    background: linear-gradient(135deg, #aa851e 0%, #d4af37 25%, #fef9e7 50%, #d4af37 75%, #aa851e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .bg-gold-metallic {
+    background: linear-gradient(135deg, #aa851e 0%, #d4af37 30%, #f3e5ab 50%, #d4af37 70%, #aa851e 100%);
+  }
+
+  .border-gold-metallic {
+    border-color: #d4af37;
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.25);
+  }
+}
+
+/* Touchscreen active state enhancements */
+@media (hover: none) and (pointer: coarse) {
+  button, .touch-target {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active, .touch-target:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Print-Specific Styles to guarantee clean, professional permits */
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 15mm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  header,
+  footer,
+  nav,
+  aside,
+  .no-print,
+  button {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+}
