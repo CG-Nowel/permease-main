@@ -6,9 +6,8 @@
     <title>Print Examination Permit - {{ $student->student_number }}</title>
     <style>
         @page {
-            size: 148mm 105mm landscape;
-            size: landscape;
-            margin: 4mm 6mm 4mm 6mm;
+            size: 100mm 150mm portrait;
+            margin: 4mm;
         }
         * {
             box-sizing: border-box;
@@ -16,58 +15,68 @@
             padding: 0;
         }
         html, body {
-            width: 148mm;
-            height: 105mm;
-            max-width: 148mm;
-            max-height: 105mm;
+            width: 92mm;
+            height: auto;
+            max-width: 92mm;
+            max-height: 140mm;
             margin: 0 auto;
-            padding: 2mm 3mm;
+            padding: 0;
             background: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            font-size: 8pt;
+            font-size: 8.5pt;
             line-height: 1.25;
             color: #000000;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
+        @media screen {
+            html, body {
+                width: 100mm;
+                max-width: 100mm;
+                padding: 4mm;
+                margin: 10px auto;
+                border: 1px dashed #94a3b8;
+            }
+        }
         .container {
             width: 100%;
-            height: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            gap: 5px;
         }
         .title-block {
             text-align: center;
-            margin-bottom: 3px;
+            padding-bottom: 4px;
+            border-bottom: 1.5px solid #000000;
         }
         .main-title {
-            font-size: 11pt;
+            font-size: 12pt;
             font-weight: 900;
-            letter-spacing: 1.5px;
+            letter-spacing: 1px;
             text-transform: uppercase;
-            color: #0b1b3d;
+            color: #000000;
         }
         .sub-curly {
-            font-size: 8pt;
-            font-weight: bold;
-            color: #374151;
+            font-size: 8.5pt;
+            font-weight: 800;
+            color: #000000;
             margin-top: 1px;
         }
         .info-grid {
             width: 100%;
-            margin-bottom: 4px;
             border-collapse: collapse;
         }
         .info-grid td {
             vertical-align: top;
-            padding: 1px 0;
-            font-size: 7.8pt;
+            padding: 1.5px 0;
+            font-size: 8pt;
+            color: #000000;
         }
         .info-label {
-            font-weight: bold;
-            color: #111827;
-            width: 72px;
+            font-weight: 800;
+            color: #000000;
+            width: 68px;
+            white-space: nowrap;
         }
         .info-value {
             color: #000000;
@@ -77,65 +86,79 @@
             text-align: center;
             font-size: 9.5pt;
             font-weight: 900;
-            letter-spacing: 2px;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
-            color: #0b1b3d;
-            margin: 2px 0 3px 0;
+            color: #000000;
+            border-top: 1px solid #000000;
+            border-bottom: 1px solid #000000;
+            padding: 2.5px 0;
         }
         .permit-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 4px;
         }
         .permit-table th,
         .permit-table td {
             border: 1px solid #000000;
-            padding: 2.5px 5px;
+            padding: 3px 4px;
             text-align: left;
-            font-size: 7pt;
+            font-size: 7.5pt;
+            color: #000000;
         }
         .permit-table th {
-            background-color: #f3f4f6 !important;
-            font-weight: 800;
+            background-color: #ffffff !important;
+            font-weight: 900;
             text-transform: uppercase;
             color: #000000;
-            font-size: 6.8pt;
-            letter-spacing: 0.5px;
+            font-size: 7pt;
+            letter-spacing: 0.3px;
+            border-bottom: 1.5px solid #000000;
         }
         .col-code {
-            width: 25%;
+            width: 24%;
             font-family: 'Courier New', Courier, monospace;
-            font-weight: bold;
+            font-weight: 800;
+            white-space: nowrap;
         }
         .col-desc {
             width: 48%;
         }
         .col-sig {
-            width: 27%;
+            width: 28%;
             text-align: center;
         }
         .footer-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 2px;
+            border-top: 1px dashed #000000;
         }
         .footer-table td {
+            padding-top: 4px;
             font-size: 7pt;
-            color: #1f2937;
+            color: #000000;
         }
         .date-issued {
-            font-weight: bold;
+            font-weight: 800;
             color: #000000;
         }
         .security-mark {
             text-align: right;
             font-family: 'Courier New', Courier, monospace;
             font-size: 6.5pt;
-            color: #4b5563;
+            font-weight: 700;
+            color: #000000;
         }
         @media print {
-            body {
+            html, body {
+                width: 92mm;
+                max-width: 92mm;
+                height: auto;
+                max-height: 140mm;
+                margin: 0;
                 padding: 0;
+                border: none;
+                overflow: hidden;
             }
             .no-print {
                 display: none !important;
@@ -154,38 +177,24 @@
         <!-- Student Details Block -->
         <table class="info-grid">
             <tr>
-                <td style="width: 58%;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr>
-                            <td class="info-label">Name:</td>
-                            <td class="info-value">{{ strtoupper($student->last_name) }}, {{ strtoupper($student->first_name) }} {{ strtoupper($student->middle_name ?? '') }}</td>
-                        </tr>
-                        <tr>
-                            <td class="info-label">Student No:</td>
-                            <td class="info-value" style="font-family: 'Courier New', Courier, monospace; font-weight: bold;">{{ $student->student_number }}</td>
-                        </tr>
-                        <tr>
-                            <td class="info-label">Program:</td>
-                            <td class="info-value">{{ $student->course }} {{ $student->program }} ({{ $student->grade_year_level ?? '1st Year' }} - {{ $student->section ?? 'A' }})</td>
-                        </tr>
-                    </table>
-                </td>
-                <td style="width: 42%;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr>
-                            <td class="info-label" style="width: 60px;">Semester:</td>
-                            <td class="info-value">{{ $semester }}</td>
-                        </tr>
-                        <tr>
-                            <td class="info-label" style="width: 60px;">S.Y:</td>
-                            <td class="info-value">{{ $academicYear }}</td>
-                        </tr>
-                        <tr>
-                            <td class="info-label" style="width: 60px;">Permit No:</td>
-                            <td class="info-value" style="font-family: 'Courier New', Courier, monospace; font-weight: bold; color: #1e40af;">{{ $permitNumber }}</td>
-                        </tr>
-                    </table>
-                </td>
+                <td class="info-label">Name:</td>
+                <td class="info-value" colspan="3">{{ strtoupper($student->last_name) }}, {{ strtoupper($student->first_name) }} {{ strtoupper($student->middle_name ?? '') }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Student No:</td>
+                <td class="info-value" style="font-family: 'Courier New', Courier, monospace; font-weight: 800;">{{ $student->student_number }}</td>
+                <td class="info-label" style="width: 58px; padding-left: 6px;">Permit No:</td>
+                <td class="info-value" style="font-family: 'Courier New', Courier, monospace; font-weight: 800;">{{ $permitNumber }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Program:</td>
+                <td class="info-value" colspan="3">{{ $student->course }} {{ $student->program }} ({{ $student->grade_year_level ?? '1st Year' }} - {{ $student->section ?? 'A' }})</td>
+            </tr>
+            <tr>
+                <td class="info-label">Semester:</td>
+                <td class="info-value">{{ $semester }}</td>
+                <td class="info-label" style="width: 58px; padding-left: 6px;">S.Y:</td>
+                <td class="info-value">{{ $academicYear }}</td>
             </tr>
         </table>
 
@@ -259,6 +268,7 @@
     </div>
 
     <!-- Automatic Direct Hardware Print Trigger & Auto-Close -->
+    @if(request()->query('auto') !== '0')
     <script>
         window.addEventListener('load', function() {
             setTimeout(function() {
@@ -276,5 +286,6 @@
             }, 400);
         });
     </script>
+    @endif
 </body>
 </html>

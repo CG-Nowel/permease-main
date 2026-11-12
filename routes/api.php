@@ -37,6 +37,7 @@ Route::prefix('students')->group(function () {
     Route::get('/{identifier}', [StudentController::class, 'show']);
     Route::put('/{id}', [StudentController::class, 'update']);
     Route::post('/{id}/billing-status', [StudentController::class, 'updateBillingStatus']);
+    Route::post('/{id}/record-print', [StudentController::class, 'recordPrint']);
     Route::get('/{id}/clearance-history', [StudentController::class, 'clearanceHistory']);
     Route::get('/{identifier}/permit-pdf', [\App\Http\Controllers\Api\PermitPdfController::class, 'generatePdf']);
 });

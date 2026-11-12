@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicTerm;
 use App\Models\FinancialStatusHistory;
+use App\Models\ReprintRequest;
 use App\Models\Student;
 use App\Models\StudentBillingStatus;
 use App\Models\StudentSubject;
@@ -16,6 +17,77 @@ use Illuminate\Support\Facades\Validator;
 class StudentController extends Controller
 {
     /**
+     * Format a Student model with live billing, permit, and reprint authorization status.
+     */
+    private function formatStudentPayload(Student $student, ?string $defaultAy = null, ?string $defaultSem = null): array
+    {
+        $student->loadMissing(['billingStatus', 'subjects', 'reprintRequests']);
+
+        $billing = $student->billingStatus;
+        $units = $student->subjects->sum('units');
+        $isCleared = $billing && $billing->billing_status === 'CLEARED';
+
+        $activeReprint = $student->reprintRequests
+            ->where('reprint_status', 'AUTHORIZED')
+            ->whereNull('printed_at')
+            ->sortByDesc('id')
+            ->first();
+
+        $consumedReprints = $student->reprintRequests
+            ->where('reprint_status', 'USED')
+            ->count();
+
+        $permitStatus = 'BLOCKED';
+        if ($isCleared) {
+            $permitStatus = ($billing->exam_permit_status === 'PRINTED') ? 'PRINTED' : 'AVAILABLE';
+        }
+
+        $printCount = ($permitStatus === 'PRINTED' ? 1 : 0) + $consumedReprints;
+        $reprintAllowed = $isCleared && $activeReprint !== null;
+
+        return [
+            'id' => $student->id,
+            'student_number' => $student->student_number,
+            'first_name' => $student->first_name,
+            'middle_name' => $student->middle_name,
+            'last_name' => $student->last_name,
+            'course' => $student->course,
+            'program' => $student->program,
+            'grade_year_level' => $student->grade_year_level,
+            'section' => $student->section,
+            'student_type' => $student->student_type ?? 'Regular',
+            'status' => 'ACTIVE',
+            'units' => $units > 0 ? $units : 18,
+            'balance_amount' => $billing ? (float) $billing->current_balance : 0.0,
+            'rfid_card' => $student->rfid_uid ? [
+                'id' => $student->id,
+                'student_id' => $student->id,
+                'rfid_uid' => $student->rfid_uid,
+                'status' => 'ACTIVE',
+            ] : null,
+            'financial_status' => [
+                'id' => $billing ? $billing->id : $student->id,
+                'student_id' => $student->id,
+                'status' => $billing ? $billing->billing_status : 'WITH_BALANCE',
+            ],
+            'academic_year' => $student->academic_year ?? $defaultAy ?? '2026-2027',
+            'semester' => $student->semester ?? $defaultSem ?? '1st Semester',
+            'current_permit' => [
+                'id' => $student->id,
+                'student_id' => $student->id,
+                'permit_number' => 'TP-2026-' . str_pad($student->id, 6, '0', STR_PAD_LEFT),
+                'academic_year' => $student->academic_year ?? $defaultAy ?? '2026-2027',
+                'semester' => $student->semester ?? $defaultSem ?? '1st Semester',
+                'exam_period' => $billing ? $billing->current_exam_period : 'Prelim',
+                'status' => $permitStatus,
+                'print_count' => $printCount,
+                'reprint_allowed' => $reprintAllowed,
+            ],
+            'subjects' => $student->subjects,
+        ];
+    }
+
+    /**
      * List all students with their billing status and subjects.
      */
     public function index(): JsonResponse
@@ -24,53 +96,9 @@ class StudentController extends Controller
         $defaultAy = $activeTerm ? $activeTerm->academic_year : '2025–2026';
         $defaultSem = $activeTerm ? $activeTerm->semester : '2nd Sem';
 
-        $students = Student::with(['billingStatus', 'subjects'])->latest()->get();
+        $students = Student::with(['billingStatus', 'subjects', 'reprintRequests'])->latest()->get();
 
-        $formatted = $students->map(function ($s) use ($defaultAy, $defaultSem) {
-            $billing = $s->billingStatus;
-            $units = $s->subjects->sum('units');
-
-            return [
-                'id' => $s->id,
-                'student_number' => $s->student_number,
-                'first_name' => $s->first_name,
-                'middle_name' => $s->middle_name,
-                'last_name' => $s->last_name,
-                'course' => $s->course,
-                'program' => $s->program,
-                'grade_year_level' => $s->grade_year_level,
-                'section' => $s->section,
-                'student_type' => $s->student_type ?? 'Regular',
-                'status' => 'ACTIVE',
-                'units' => $units > 0 ? $units : 18,
-                'balance_amount' => $billing ? (float) $billing->current_balance : 0.0,
-                'rfid_card' => $s->rfid_uid ? [
-                    'id' => $s->id,
-                    'student_id' => $s->id,
-                    'rfid_uid' => $s->rfid_uid,
-                    'status' => 'ACTIVE',
-                ] : null,
-                'financial_status' => [
-                    'id' => $billing ? $billing->id : $s->id,
-                    'student_id' => $s->id,
-                    'status' => $billing ? $billing->billing_status : 'WITH_BALANCE',
-                ],
-                'academic_year' => $s->academic_year ?? $defaultAy,
-                'semester' => $s->semester ?? $defaultSem,
-                'current_permit' => [
-                    'id' => $s->id,
-                    'student_id' => $s->id,
-                    'permit_number' => 'TP-2026-' . str_pad($s->id, 6, '0', STR_PAD_LEFT),
-                    'academic_year' => $s->academic_year ?? $defaultAy,
-                    'semester' => $s->semester ?? $defaultSem,
-                    'exam_period' => $billing ? $billing->current_exam_period : 'Prelim',
-                    'status' => $billing && $billing->billing_status === 'CLEARED' ? 'AVAILABLE' : 'BLOCKED',
-                    'print_count' => 0,
-                    'reprint_allowed' => false,
-                ],
-                'subjects' => $s->subjects,
-            ];
-        });
+        $formatted = $students->map(fn ($s) => $this->formatStudentPayload($s, $defaultAy, $defaultSem));
 
         return response()->json([
             'success' => true,
@@ -197,50 +225,7 @@ class StudentController extends Controller
 
             /** @var Student $student */
             $student = $result['student'];
-            /** @var StudentBillingStatus $billing */
-            $billing = $result['billing'];
-            $totalUnits = $result['totalUnits'];
-
-            $formatted = [
-                'id' => $student->id,
-                'student_number' => $student->student_number,
-                'first_name' => $student->first_name,
-                'middle_name' => $student->middle_name,
-                'last_name' => $student->last_name,
-                'course' => $student->course,
-                'program' => $student->program,
-                'grade_year_level' => $student->grade_year_level,
-                'section' => $student->section,
-                'student_type' => $student->student_type,
-                'academic_year' => $student->academic_year,
-                'semester' => $student->semester,
-                'status' => 'ACTIVE',
-                'units' => $totalUnits,
-                'balance_amount' => (float) $billing->current_balance,
-                'rfid_card' => $student->rfid_uid ? [
-                    'id' => $student->id,
-                    'student_id' => $student->id,
-                    'rfid_uid' => $student->rfid_uid,
-                    'status' => 'ACTIVE',
-                ] : null,
-                'financial_status' => [
-                    'id' => $billing->id,
-                    'student_id' => $student->id,
-                    'status' => 'WITH_BALANCE',
-                ],
-                'current_permit' => [
-                    'id' => $student->id,
-                    'student_id' => $student->id,
-                    'permit_number' => 'TP-2026-' . str_pad($student->id, 6, '0', STR_PAD_LEFT),
-                    'academic_year' => $student->academic_year,
-                    'semester' => $student->semester,
-                    'exam_period' => $billing->current_exam_period,
-                    'status' => 'BLOCKED',
-                    'print_count' => 0,
-                    'reprint_allowed' => false,
-                ],
-                'subjects' => $student->subjects,
-            ];
+            $formatted = $this->formatStudentPayload($student);
 
             return response()->json([
                 'success' => true,
@@ -260,7 +245,7 @@ class StudentController extends Controller
      */
     public function show(string $identifier): JsonResponse
     {
-        $student = Student::with(['billingStatus', 'subjects'])
+        $student = Student::with(['billingStatus', 'subjects', 'reprintRequests'])
             ->where('id', $identifier)
             ->orWhere('student_number', $identifier)
             ->orWhere('rfid_uid', $identifier)
@@ -273,49 +258,9 @@ class StudentController extends Controller
             ], 404);
         }
 
-        $billing = $student->billingStatus;
-        $units = $student->subjects->sum('units');
-
         return response()->json([
             'success' => true,
-            'data' => [
-                'id' => $student->id,
-                'student_number' => $student->student_number,
-                'first_name' => $student->first_name,
-                'middle_name' => $student->middle_name,
-                'last_name' => $student->last_name,
-                'course' => $student->course,
-                'program' => $student->program,
-                'grade_year_level' => $student->grade_year_level,
-                'section' => $student->section,
-                'student_type' => $student->student_type,
-                'status' => 'ACTIVE',
-                'units' => $units,
-                'balance_amount' => $billing ? (float) $billing->current_balance : 0.0,
-                'rfid_card' => $student->rfid_uid ? [
-                    'id' => $student->id,
-                    'student_id' => $student->id,
-                    'rfid_uid' => $student->rfid_uid,
-                    'status' => 'ACTIVE',
-                ] : null,
-                'financial_status' => [
-                    'id' => $billing ? $billing->id : $student->id,
-                    'student_id' => $student->id,
-                    'status' => $billing ? $billing->billing_status : 'WITH_BALANCE',
-                ],
-                'current_permit' => [
-                    'id' => $student->id,
-                    'student_id' => $student->id,
-                    'permit_number' => 'TP-2026-' . str_pad($student->id, 6, '0', STR_PAD_LEFT),
-                    'academic_year' => $student->academic_year,
-                    'semester' => $student->semester,
-                    'exam_period' => $billing ? $billing->current_exam_period : 'Prelim',
-                    'status' => $billing && $billing->billing_status === 'CLEARED' ? 'AVAILABLE' : 'BLOCKED',
-                    'print_count' => 0,
-                    'reprint_allowed' => false,
-                ],
-                'subjects' => $student->subjects,
-            ],
+            'data' => $this->formatStudentPayload($student),
         ]);
     }
 
@@ -397,51 +342,12 @@ class StudentController extends Controller
                 }
             });
 
-            $student->load(['billingStatus', 'subjects']);
-            $billing = $student->billingStatus;
-            $units = $student->subjects->sum('units');
+            $student->load(['billingStatus', 'subjects', 'reprintRequests']);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Student record and subjects successfully updated.',
-                'data' => [
-                    'id' => $student->id,
-                    'student_number' => $student->student_number,
-                    'first_name' => $student->first_name,
-                    'middle_name' => $student->middle_name,
-                    'last_name' => $student->last_name,
-                    'course' => $student->course,
-                    'program' => $student->program,
-                    'grade_year_level' => $student->grade_year_level,
-                    'section' => $student->section,
-                    'student_type' => $student->student_type,
-                    'status' => 'ACTIVE',
-                    'units' => $units,
-                    'balance_amount' => $billing ? (float) $billing->current_balance : 0.0,
-                    'rfid_card' => $student->rfid_uid ? [
-                        'id' => $student->id,
-                        'student_id' => $student->id,
-                        'rfid_uid' => $student->rfid_uid,
-                        'status' => 'ACTIVE',
-                    ] : null,
-                    'financial_status' => [
-                        'id' => $billing ? $billing->id : $student->id,
-                        'student_id' => $student->id,
-                        'status' => $billing ? $billing->billing_status : 'WITH_BALANCE',
-                    ],
-                    'current_permit' => [
-                        'id' => $student->id,
-                        'student_id' => $student->id,
-                        'permit_number' => 'TP-2026-' . str_pad($student->id, 6, '0', STR_PAD_LEFT),
-                        'academic_year' => $student->academic_year,
-                        'semester' => $student->semester,
-                        'exam_period' => $billing ? $billing->current_exam_period : 'Prelim',
-                        'status' => $billing && $billing->billing_status === 'CLEARED' ? 'AVAILABLE' : 'BLOCKED',
-                        'print_count' => 0,
-                        'reprint_allowed' => false,
-                    ],
-                    'subjects' => $student->subjects,
-                ],
+                'data' => $this->formatStudentPayload($student),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -519,45 +425,24 @@ class StudentController extends Controller
                 ]);
             });
 
-            $student->load(['billingStatus', 'subjects', 'clearanceHistories']);
-            $billing = $student->billingStatus;
+            $student->load(['billingStatus', 'subjects', 'reprintRequests', 'clearanceHistories']);
+            $payload = $this->formatStudentPayload($student);
+            $payload['history'] = $student->clearanceHistories->map(function ($h) {
+                return [
+                    'id' => $h->id,
+                    'student_id' => $h->student_id,
+                    'previous_status' => $h->previous_status,
+                    'new_status' => $h->new_status,
+                    'notes' => $h->notes,
+                    'operator_name' => $h->operator_name,
+                    'created_at' => $h->created_at->format('Y-m-d H:i:s'),
+                ];
+            });
 
             return response()->json([
                 'success' => true,
                 'message' => "Financial clearance status updated to {$newStatus}.",
-                'data' => [
-                    'id' => $student->id,
-                    'student_number' => $student->student_number,
-                    'first_name' => $student->first_name,
-                    'last_name' => $student->last_name,
-                    'financial_status' => [
-                        'id' => $billing ? $billing->id : $student->id,
-                        'student_id' => $student->id,
-                        'status' => $billing ? $billing->billing_status : $newStatus,
-                    ],
-                    'current_permit' => [
-                        'id' => $student->id,
-                        'student_id' => $student->id,
-                        'permit_number' => 'TP-2026-' . str_pad($student->id, 6, '0', STR_PAD_LEFT),
-                        'academic_year' => $student->academic_year,
-                        'semester' => $student->semester,
-                        'exam_period' => $billing ? $billing->current_exam_period : 'Prelim',
-                        'status' => $billing && $billing->billing_status === 'CLEARED' ? 'AVAILABLE' : 'BLOCKED',
-                        'print_count' => 0,
-                        'reprint_allowed' => false,
-                    ],
-                    'history' => $student->clearanceHistories->map(function ($h) {
-                        return [
-                            'id' => $h->id,
-                            'student_id' => $h->student_id,
-                            'previous_status' => $h->previous_status,
-                            'new_status' => $h->new_status,
-                            'notes' => $h->notes,
-                            'operator_name' => $h->operator_name,
-                            'created_at' => $h->created_at->format('Y-m-d H:i:s'),
-                        ];
-                    }),
-                ],
+                'data' => $payload,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -602,5 +487,64 @@ class StudentController extends Controller
             'success' => true,
             'data' => $histories,
         ]);
+    }
+
+    /**
+     * Record a kiosk permit print and atomically consume an authorized reprint token if present.
+     */
+    public function recordPrint(string $id): JsonResponse
+    {
+        $student = Student::with(['billingStatus', 'subjects', 'reprintRequests'])
+            ->where('id', $id)
+            ->orWhere('student_number', $id)
+            ->orWhere('rfid_uid', $id)
+            ->first();
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found.',
+            ], 404);
+        }
+
+        try {
+            DB::transaction(function () use ($student) {
+                $billing = $student->billingStatus;
+
+                $activeReprint = ReprintRequest::where('student_id', $student->id)
+                    ->where('reprint_status', 'AUTHORIZED')
+                    ->whereNull('printed_at')
+                    ->latest('id')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($activeReprint) {
+                    $activeReprint->update([
+                        'payment_status' => 'CONSUMED',
+                        'reprint_status' => 'USED',
+                        'printed_at' => now(),
+                    ]);
+                }
+
+                if ($billing && $billing->exam_permit_status !== 'PRINTED') {
+                    $billing->update([
+                        'exam_permit_status' => 'PRINTED',
+                    ]);
+                }
+            });
+
+            $student->refresh()->load(['billingStatus', 'subjects', 'reprintRequests']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Permit print recorded.',
+                'data' => $this->formatStudentPayload($student),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to record permit print: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

@@ -102,10 +102,14 @@ class ReprintController extends Controller
                         'current_balance' => 0.00,
                         'total_paid' => 15500.00,
                         'billing_status' => 'CLEARED',
-                        'exam_permit_status' => 'AVAILABLE',
+                        'exam_permit_status' => 'PRINTED',
                     ]);
                     $billingId = $billing->id;
                     $student->update(['billing_status_id' => $billingId]);
+                } elseif ($student->billingStatus && $student->billingStatus->billing_status === 'CLEARED') {
+                    $student->billingStatus->update([
+                        'exam_permit_status' => 'PRINTED',
+                    ]);
                 }
 
                 return ReprintRequest::create([

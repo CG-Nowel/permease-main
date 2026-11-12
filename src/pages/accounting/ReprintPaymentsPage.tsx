@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import type { ReprintPayment, Student } from '../../types/index.ts';
 import { api } from '../../lib/api.ts';
 import { useAuth } from '../../store/AuthContext.tsx';
+import { syncStudentsFromBackend } from '../../store/studentStore.ts';
 
 export const ReprintPaymentsPage: React.FC = () => {
   const { user } = useAuth();
@@ -85,7 +86,7 @@ export const ReprintPaymentsPage: React.FC = () => {
       if (res.data?.success) {
         toast.success(res.data.message || 'Reprint payment confirmed! 1 reprint copy authorized.');
         setIsModalOpen(false);
-        await fetchPayments();
+        await Promise.all([fetchPayments(), fetchStudents(), syncStudentsFromBackend()]);
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };

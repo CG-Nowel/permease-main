@@ -38,6 +38,7 @@ import {
 import { toast } from 'sonner';
 import { useStudentStore } from '../../store/studentStore.ts';
 import type { Student } from '../../types/index.ts';
+import { printKioskPermit } from './utils/printKioskPermit.ts';
 
 type KioskScreenState =
   | 'IDLE_WAITING'
@@ -65,7 +66,7 @@ export interface KioskStudentProfile {
 }
 
 export const KioskPage: React.FC = () => {
-  const { students, getStudentById, getStudentByNumberOrRfid, markPermitPrinted } = useStudentStore();
+  const { students, getStudentById, fetchLiveStudentForKiosk, markPermitPrinted } = useStudentStore();
   const [screenState, setScreenState] = useState<KioskScreenState>('IDLE_WAITING');
   const [currentStudent, setCurrentStudent] = useState<KioskStudentProfile | null>(null);
   const [countdown, setCountdown] = useState<number>(7);
@@ -195,9 +196,9 @@ export const KioskPage: React.FC = () => {
     }
   }, []);
 
-  // Simulate or process RFID Card Scan
+  // Process RFID Card Scan or Student Number against live backend state
   const handleScanCard = useCallback(
-    (uid: string) => {
+    async (uid: string) => {
       setIsAttractorMode(false);
       setIsHelpOpen(false);
 
@@ -215,7 +216,7 @@ export const KioskPage: React.FC = () => {
         }
       }
 
-      if (uid === 'WITH_BALANCE' || uid === '2' || uid === 'A9B8C7D6' || uid === '2026-00002') {
+      if (uid === 'WITH_BALANCE' || uid === '2') {
         const student2 = getStudentById(2);
         if (student2) {
           handleProcessStudent(student2);
@@ -243,7 +244,7 @@ export const KioskPage: React.FC = () => {
         }
       }
 
-      const found = getStudentByNumberOrRfid(uid);
+      const found = await fetchLiveStudentForKiosk(uid);
       if (found) {
         handleProcessStudent(found);
       } else {
@@ -251,7 +252,7 @@ export const KioskPage: React.FC = () => {
         setScreenState('CARD_NOT_RECOGNIZED');
       }
     },
-    [getStudentById, getStudentByNumberOrRfid, handleProcessStudent]
+    [getStudentById, fetchLiveStudentForKiosk, handleProcessStudent]
   );
 
   // Hardware RFID Reader (HID keyboard wedge listener) & hotkeys
@@ -268,6 +269,7 @@ export const KioskPage: React.FC = () => {
 
       if (e.key === 'Escape') {
         KioskAudio.playKeyClick();
+        setIsDispensing(false);
         setScreenState('IDLE_WAITING');
         setCurrentStudent(null);
         setIsHelpOpen(false);
@@ -308,14 +310,58 @@ export const KioskPage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleScanCard, isAttractorMode]);
 
+  const resolveStudentRecord = useCallback(
+    (profile: KioskStudentProfile): Student => {
+      const existing = profile.id ? getStudentById(profile.id) : undefined;
+      if (existing) return existing;
+
+      const studentId = profile.id || 1;
+      const nameParts = profile.name.trim().split(/\s+/);
+      const programParts = profile.courseProgram.trim().split(/\s+/);
+
+      return {
+        id: studentId,
+        student_number: profile.studentNumber,
+        first_name: nameParts[0] || 'Student',
+        last_name: nameParts.slice(1).join(' ') || 'Record',
+        grade_year_level: profile.yearLevel,
+        section: profile.section,
+        course: programParts[0] || 'BS',
+        program: programParts.slice(1).join(' ') || 'IT',
+        status: 'ACTIVE',
+        balance_amount: 0,
+        financial_status: { id: 1, student_id: studentId, status: 'CLEARED' },
+        current_permit: {
+          id: 1,
+          student_id: studentId,
+          permit_number: profile.permitNumber,
+          academic_year: '2026-2027',
+          semester: '1st Semester',
+          exam_period: selectedExamPeriod,
+          status: 'PRINTED',
+          print_count: (profile.printCount || 0) + 1,
+          reprint_allowed: false,
+        },
+      };
+    },
+    [getStudentById, selectedExamPeriod]
+  );
+
   const handlePrintPermit = useCallback(() => {
-    if (currentStudent?.id) {
-      KioskAudio.playKeyClick();
-      markPermitPrinted(currentStudent.id);
-      setIsDispensing(true);
-      setScreenState('PRINTING_SUCCESS');
-    }
-  }, [currentStudent, markPermitPrinted]);
+    if (!currentStudent?.id) return;
+
+    KioskAudio.playKeyClick();
+    markPermitPrinted(currentStudent.id);
+    setIsDispensing(true);
+    setScreenState('PRINTING_SUCCESS');
+
+    const studentRecord = resolveStudentRecord(currentStudent);
+    void printKioskPermit({
+      student: studentRecord,
+      examPeriod: selectedExamPeriod,
+      permitNumber: currentStudent.permitNumber,
+    });
+  }, [currentStudent, markPermitPrinted, resolveStudentRecord, selectedExamPeriod]);
 
   // Safety session timeout for active student screen: returns to idle after 60s of complete inactivity (NO auto-print)
   useEffect(() => {
@@ -336,6 +382,7 @@ export const KioskPage: React.FC = () => {
 
   const handleResetToIdle = () => {
     KioskAudio.playKeyClick();
+    setIsDispensing(false);
     setScreenState('IDLE_WAITING');
     setCurrentStudent(null);
     setIsHelpOpen(false);
@@ -902,32 +949,7 @@ export const KioskPage: React.FC = () => {
               className="w-full max-w-xl mx-auto flex flex-col items-center justify-center my-auto"
             >
               <KioskDispenseStation
-                student={
-                  getStudentById(currentStudent.id || 1) || {
-                    id: currentStudent.id || 1,
-                    student_number: currentStudent.studentNumber,
-                    first_name: currentStudent.name.split(' ')[0] || 'Juan',
-                    last_name: currentStudent.name.split(' ').slice(1).join(' ') || 'Dela Cruz',
-                    grade_year_level: currentStudent.yearLevel,
-                    section: currentStudent.section,
-                    course: currentStudent.courseProgram.split(' ')[0] || 'BS',
-                    program: currentStudent.courseProgram.split(' ').slice(1).join(' ') || 'IT',
-                    status: 'ACTIVE',
-                    balance_amount: 0,
-                    financial_status: { id: 1, student_id: currentStudent.id || 1, status: 'CLEARED' },
-                    current_permit: {
-                      id: 1,
-                      student_id: currentStudent.id || 1,
-                      permit_number: currentStudent.permitNumber,
-                      academic_year: '2026-2027',
-                      semester: '1st Semester',
-                      exam_period: selectedExamPeriod,
-                      status: 'PRINTED',
-                      print_count: (currentStudent.printCount || 0) + 1,
-                      reprint_allowed: false,
-                    },
-                  }
-                }
+                student={resolveStudentRecord(currentStudent)}
                 examPeriod={selectedExamPeriod}
                 onFinish={handleResetToIdle}
               />

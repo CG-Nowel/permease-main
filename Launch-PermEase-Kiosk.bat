@@ -13,6 +13,6 @@ echo ========================================================
 echo Launching Kiosk with Silent Auto-Printing...
 echo.
 
-start "" %CHROME_PATH% --kiosk-printing --user-data-dir="%LOCALAPPDATA%\PermEaseKiosk" --app="http://localhost:8000/kiosk"
+start "" %CHROME_PATH% --kiosk-printing --user-data-dir="%LOCALAPPDATA%\PermEaseKiosk" --app="http://127.0.0.1:8000/kiosk"
 
 exit

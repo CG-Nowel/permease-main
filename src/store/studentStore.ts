@@ -88,6 +88,34 @@ export const studentStore = {
     );
   },
 
+  async fetchLiveStudentForKiosk(identifier: string): Promise<Student | null> {
+    const query = identifier.trim();
+    if (!query) return null;
+
+    try {
+      const res = await api.get(`/api/students/${encodeURIComponent(query)}`);
+      if (res.data?.success && res.data.data) {
+        const liveStudent = res.data.data as Student;
+        const students = getStoredStudents();
+        const exists = students.some((s) => s.id === liveStudent.id);
+        const updated = exists
+          ? students.map((s) => (s.id === liveStudent.id ? liveStudent : s))
+          : [liveStudent, ...students];
+        localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(updated));
+        notifyDataChanged();
+        return liveStudent;
+      }
+      return null;
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        return null;
+      }
+      // Fall back to local cache only if backend is unreachable
+      return studentStore.getStudentByNumberOrRfid(query) || null;
+    }
+  },
+
   createPromissoryRequest(data: {
     studentId: number;
     examPeriod: string;
@@ -299,6 +327,7 @@ export const studentStore = {
     if (student.current_permit) {
       student.current_permit.status = 'PRINTED';
       student.current_permit.print_count += 1;
+      student.current_permit.reprint_allowed = false;
       student.current_permit.last_printed_at = timestamp;
       if (!student.current_permit.first_printed_at) {
         student.current_permit.first_printed_at = timestamp;
@@ -309,6 +338,23 @@ export const studentStore = {
     localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(updatedStudents));
 
     notifyDataChanged();
+
+    // Persist print status & consume authorized reprint token on backend
+    void api
+      .post(`/api/students/${studentId}/record-print`)
+      .then((res) => {
+        if (res.data?.success && res.data.data) {
+          const syncedStudent = res.data.data as Student;
+          const current = getStoredStudents();
+          const next = current.map((s) => (s.id === syncedStudent.id ? syncedStudent : s));
+          localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(next));
+          notifyDataChanged();
+        }
+      })
+      .catch((err) => {
+        console.warn('Backend record-print sync failed, kept local state:', err);
+      });
+
     return student;
   },
 
@@ -373,6 +419,7 @@ export const useStudentStore = () => {
     refresh,
     getStudentById: studentStore.getStudentById,
     getStudentByNumberOrRfid: studentStore.getStudentByNumberOrRfid,
+    fetchLiveStudentForKiosk: studentStore.fetchLiveStudentForKiosk,
     createPromissoryRequest: studentStore.createPromissoryRequest,
     approvePromissoryAndClearBilling: studentStore.approvePromissoryAndClearBilling,
     updateStudentBillingStatus: studentStore.updateStudentBillingStatus,
