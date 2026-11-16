@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicTerm;
 use App\Models\PromissoryRequest;
 use App\Models\Student;
 use App\Models\StudentBillingStatus;
@@ -29,7 +30,9 @@ class PromissoryController extends Controller
             $query->where('student_id', $request->student_id);
         }
 
-        $requests = $query->get()->map(function ($p) {
+        $activeExamPeriod = AcademicTerm::where('is_active', true)->value('exam_period') ?? 'Prelim';
+
+        $requests = $query->get()->map(function ($p) use ($activeExamPeriod) {
             $student = $p->student;
             $billing = $student ? $student->billingStatus : null;
 
@@ -41,7 +44,7 @@ class PromissoryController extends Controller
                 'student_name' => $student ? "{$student->first_name} {$student->last_name}" : 'Unknown',
                 'course_program' => $student ? "{$student->course} {$student->program}" : '',
                 'year_section' => $student ? "{$student->grade_year_level} - {$student->section}" : '',
-                'exam_period' => $p->exam_period ?? 'Midterms',
+                'exam_period' => $p->exam_period ?? $activeExamPeriod,
                 'academic_year' => $student ? $student->academic_year : '2026-2027',
                 'semester' => $student ? $student->semester : '1st Sem',
                 'current_balance' => $billing ? (float) $billing->current_balance : (float) $p->remaining_balance,
@@ -135,7 +138,7 @@ class PromissoryController extends Controller
             'remaining_balance' => $remainingBalance,
             'reason' => $request->input('reason'),
             'remarks' => $request->input('remarks'),
-            'exam_period' => $request->input('exam_period', 'Midterms'),
+            'exam_period' => $request->input('exam_period') ?: (AcademicTerm::where('is_active', true)->value('exam_period') ?? 'Prelim'),
             'promise_to_pay_date' => $request->input('promise_to_pay_date'),
             'guarantor_name' => $request->input('guarantor_name'),
             'guarantor_contact' => $request->input('guarantor_contact'),

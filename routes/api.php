@@ -58,11 +58,12 @@ Route::prefix('promissory-requests')->group(function () {
     Route::post('/{id}/reject', [PromissoryController::class, 'reject']);
 });
 
-// Academic Terms Management (School Year and Semester)
+// Academic Terms Management (School Year, Semester & Exam Period)
 Route::prefix('academic-terms')->group(function () {
     Route::get('/', [AcademicTermController::class, 'index']);
     Route::post('/', [AcademicTermController::class, 'store']);
     Route::post('/set-active', [AcademicTermController::class, 'setActive']);
+    Route::post('/set-exam-period', [AcademicTermController::class, 'setExamPeriod']);
 });
 
 

@@ -33,7 +33,7 @@ type BentoTileId = 'identity' | 'financial' | 'permit' | 'subjects' | null;
 
 export const KioskClearanceBento: React.FC<KioskClearanceBentoProps> = ({
   student,
-  examPeriod = 'Midterms',
+  examPeriod = 'Prelim',
   onPrintClick,
   isDispensing = false,
 }) => {

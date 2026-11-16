@@ -15,6 +15,7 @@ class AcademicTerm extends Model
         'code',
         'academic_year',
         'semester',
+        'exam_period',
         'label',
         'status',
         'is_active',

@@ -37,6 +37,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStudentStore } from '../../store/studentStore.ts';
+import { useAcademicTerm } from '../../store/AcademicTermContext.tsx';
+import { normalizeExamPeriod } from '../../lib/constants.ts';
 import type { Student } from '../../types/index.ts';
 import { printKioskPermit } from './utils/printKioskPermit.ts';
 
@@ -67,10 +69,15 @@ export interface KioskStudentProfile {
 
 export const KioskPage: React.FC = () => {
   const { students, getStudentById, fetchLiveStudentForKiosk, markPermitPrinted } = useStudentStore();
+  const { activeTerm, activeExamPeriod, refreshActiveTerm } = useAcademicTerm();
   const [screenState, setScreenState] = useState<KioskScreenState>('IDLE_WAITING');
   const [currentStudent, setCurrentStudent] = useState<KioskStudentProfile | null>(null);
   const [countdown, setCountdown] = useState<number>(7);
-  const [selectedExamPeriod, setSelectedExamPeriod] = useState<ExamPeriod>('Midterms');
+  const [selectedExamPeriod, setSelectedExamPeriod] = useState<ExamPeriod>(activeExamPeriod);
+
+  useEffect(() => {
+    setSelectedExamPeriod(activeExamPeriod);
+  }, [activeExamPeriod]);
   const [isDispensing, setIsDispensing] = useState<boolean>(false);
   const [isAttractorMode, setIsAttractorMode] = useState<boolean>(false);
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
@@ -202,6 +209,8 @@ export const KioskPage: React.FC = () => {
       setIsAttractorMode(false);
       setIsHelpOpen(false);
 
+      const livePeriodPromise = refreshActiveTerm();
+
       if (uid === 'UNKNOWN' || uid === '0') {
         KioskAudio.playWarningTone();
         setScreenState('CARD_NOT_RECOGNIZED');
@@ -209,6 +218,7 @@ export const KioskPage: React.FC = () => {
       }
 
       if (uid === 'CLEARED_INITIAL' || uid === '1') {
+        setSelectedExamPeriod(await livePeriodPromise);
         const student1 = getStudentById(1);
         if (student1) {
           handleProcessStudent(student1);
@@ -217,6 +227,7 @@ export const KioskPage: React.FC = () => {
       }
 
       if (uid === 'WITH_BALANCE' || uid === '2') {
+        setSelectedExamPeriod(await livePeriodPromise);
         const student2 = getStudentById(2);
         if (student2) {
           handleProcessStudent(student2);
@@ -225,6 +236,7 @@ export const KioskPage: React.FC = () => {
       }
 
       if (uid === 'ALREADY_PRINTED' || uid === '3') {
+        setSelectedExamPeriod(await livePeriodPromise);
         const student3 = getStudentById(3);
         if (student3) {
           handleProcessStudent(student3);
@@ -233,6 +245,7 @@ export const KioskPage: React.FC = () => {
       }
 
       if (uid === 'REPRINT_APPROVED' || uid === '4') {
+        setSelectedExamPeriod(await livePeriodPromise);
         const student3 = getStudentById(3);
         if (student3) {
           const studentCopy: Student = {
@@ -244,7 +257,10 @@ export const KioskPage: React.FC = () => {
         }
       }
 
-      const found = await fetchLiveStudentForKiosk(uid);
+      const [livePeriod, found] = await Promise.all([livePeriodPromise, fetchLiveStudentForKiosk(uid)]);
+      const resolvedPeriod = normalizeExamPeriod(found?.current_permit?.exam_period || livePeriod);
+      setSelectedExamPeriod(resolvedPeriod);
+
       if (found) {
         handleProcessStudent(found);
       } else {
@@ -252,7 +268,7 @@ export const KioskPage: React.FC = () => {
         setScreenState('CARD_NOT_RECOGNIZED');
       }
     },
-    [getStudentById, fetchLiveStudentForKiosk, handleProcessStudent]
+    [getStudentById, fetchLiveStudentForKiosk, handleProcessStudent, refreshActiveTerm]
   );
 
   // Hardware RFID Reader (HID keyboard wedge listener) & hotkeys
@@ -335,8 +351,8 @@ export const KioskPage: React.FC = () => {
           id: 1,
           student_id: studentId,
           permit_number: profile.permitNumber,
-          academic_year: '2026-2027',
-          semester: '1st Semester',
+          academic_year: activeTerm.academic_year,
+          semester: activeTerm.semester,
           exam_period: selectedExamPeriod,
           status: 'PRINTED',
           print_count: (profile.printCount || 0) + 1,
@@ -344,7 +360,7 @@ export const KioskPage: React.FC = () => {
         },
       };
     },
-    [getStudentById, selectedExamPeriod]
+    [activeTerm.academic_year, activeTerm.semester, getStudentById, selectedExamPeriod]
   );
 
   const handlePrintPermit = useCallback(() => {
@@ -504,16 +520,16 @@ export const KioskPage: React.FC = () => {
         {/* Left: Brand Lockup with Logo Mark (Single line, never collides) */}
         <div className="flex items-center gap-2.5 shrink-0">
           <img
-            src="/images/permease-mark-lightrim.png"
+            src="/images/logox.jpg"
             alt="PermEase"
-            className="h-7 sm:h-8 w-auto object-contain select-none"
+            className="h-7 sm:h-8 w-auto object-contain select-none rounded-md"
           />
           <div className="flex flex-col text-left">
             <span className="font-serif-brand font-black text-white text-sm sm:text-base tracking-wider whitespace-nowrap leading-tight">
               PERM<span className="text-[#D4AF37]">EASE</span>
             </span>
             <span className="text-[8px] sm:text-[9px] font-mono font-bold tracking-widest text-[#D4AF37] uppercase whitespace-nowrap leading-none mt-0.5">
-              STATION #01 • AY 2026–2027
+              STATION #01 • AY {activeTerm.academic_year} • {selectedExamPeriod.toUpperCase()}
             </span>
           </div>
         </div>
@@ -876,9 +892,9 @@ export const KioskPage: React.FC = () => {
               <div className="flex items-center justify-between border-b-2 border-slate-200 pb-2.5">
                 <div className="flex items-center gap-2.5">
                   <img
-                    src="/images/permease-mark.png"
+                    src="/images/logox.jpg"
                     alt="PermEase"
-                    className="h-8 w-auto object-contain"
+                    className="h-8 w-auto object-contain select-none rounded-md"
                   />
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block leading-none">

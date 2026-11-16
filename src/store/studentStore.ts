@@ -57,8 +57,12 @@ export const syncStudentsFromBackend = async (): Promise<Student[]> => {
   try {
     const res = await api.get('/api/students');
     if (res.data?.success && Array.isArray(res.data.data)) {
-      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(res.data.data));
-      notifyDataChanged();
+      const currentRaw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+      const newRaw = JSON.stringify(res.data.data);
+      if (currentRaw !== newRaw) {
+        localStorage.setItem(STORAGE_KEYS.STUDENTS, newRaw);
+        notifyDataChanged();
+      }
       return res.data.data;
     }
   } catch (err) {
@@ -148,7 +152,7 @@ export const studentStore = {
       student_name: `${student.first_name} ${student.last_name}`,
       course_program: `${student.course} ${student.program}`,
       year_section: `${student.grade_year_level} - ${student.section}`,
-      exam_period: data.examPeriod || 'Midterms',
+      exam_period: data.examPeriod || 'Prelim',
       academic_year: data.academicYear || '2026-2027',
       semester: data.semester || '1st Sem',
       current_balance: data.currentBalance ?? 0,
@@ -326,12 +330,26 @@ export const studentStore = {
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
     if (student.current_permit) {
       student.current_permit.status = 'PRINTED';
-      student.current_permit.print_count += 1;
+      student.current_permit.print_count = (student.current_permit.print_count || 0) + 1;
       student.current_permit.reprint_allowed = false;
       student.current_permit.last_printed_at = timestamp;
       if (!student.current_permit.first_printed_at) {
         student.current_permit.first_printed_at = timestamp;
       }
+    } else {
+      student.current_permit = {
+        id: student.id,
+        student_id: student.id,
+        permit_number: `TP-2026-${String(student.id).padStart(6, '0')}`,
+        academic_year: student.academic_year || '2026-2027',
+        semester: student.semester || '1st Semester',
+        exam_period: 'Prelim',
+        status: 'PRINTED',
+        print_count: 1,
+        reprint_allowed: false,
+        first_printed_at: timestamp,
+        last_printed_at: timestamp,
+      };
     }
 
     const updatedStudents = students.map((s) => (s.id === student.id ? student : s));
@@ -406,9 +424,22 @@ export const useStudentStore = () => {
     const handleSync = () => refresh();
     window.addEventListener(DATA_CHANGE_EVENT, handleSync);
     window.addEventListener('storage', handleSync);
+
+    const handleFocus = () => {
+      void syncStudentsFromBackend();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Auto-sync polling every 4 seconds to reflect prints occurring on external kiosks/terminals
+    const pollInterval = setInterval(() => {
+      void syncStudentsFromBackend();
+    }, 4000);
+
     return () => {
       window.removeEventListener(DATA_CHANGE_EVENT, handleSync);
       window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(pollInterval);
     };
   }, [refresh]);
 

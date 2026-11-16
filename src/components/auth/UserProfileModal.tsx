@@ -165,9 +165,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
             {/* Header: Institution & Contactless Icon */}
             <div className="flex items-start justify-between relative z-10">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-white p-0.5 flex items-center justify-center">
-                  <img src="/images/logox.jpg" alt="Logo" className="w-full h-full object-contain" />
-                </div>
+                <img
+                  src="/images/logox.jpg"
+                  alt="PermEase"
+                  className="h-6 w-auto object-contain select-none shrink-0 rounded-xs"
+                />
                 <div>
                   <span className="text-[11px] font-black tracking-widest text-[#D4AF37] uppercase block leading-none">
                     PERMEASE

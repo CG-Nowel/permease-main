@@ -67,6 +67,22 @@ export const API_ROUTES = {
     LIST: '/api/academic-terms',
     CREATE: '/api/academic-terms',
     SET_ACTIVE: '/api/academic-terms/set-active',
+    SET_EXAM_PERIOD: '/api/academic-terms/set-exam-period',
   },
 } as const;
+
+export const EXAM_PERIODS = ['Prelim', 'Midterms', 'Pre-Finals', 'Finals'] as const;
+
+export type ExamPeriod = (typeof EXAM_PERIODS)[number];
+
+export const normalizeExamPeriod = (value?: string | null): ExamPeriod => {
+  const normalized = (value || '').trim().toLowerCase();
+  if (normalized === 'prelim' || normalized === 'prelims') return 'Prelim';
+  if (normalized === 'midterm' || normalized === 'midterms') return 'Midterms';
+  if (normalized === 'pre-final' || normalized === 'pre-finals' || normalized === 'prefinals' || normalized === 'semi-finals') {
+    return 'Pre-Finals';
+  }
+  if (normalized === 'final' || normalized === 'finals') return 'Finals';
+  return 'Prelim';
+};
 

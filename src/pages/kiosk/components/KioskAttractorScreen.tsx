@@ -109,9 +109,9 @@ export const KioskAttractorScreen: React.FC<KioskAttractorScreenProps> = ({ onWa
           {/* Official Monogram Mark with Elegant Rim and Badge */}
           <div className="p-4 sm:p-5 rounded-3xl bg-white/95 border-2 border-[#D4AF37] shadow-[0_16px_40px_rgba(0,0,0,0.6)] flex items-center gap-4">
             <img
-              src="/images/permease-mark.png"
+              src="/images/logox.jpg"
               alt="PermEase Monogram"
-              className="h-16 sm:h-20 w-auto object-contain select-none"
+              className="h-16 sm:h-20 w-auto object-contain select-none rounded-xl"
             />
             <div className="flex flex-col text-left pr-2">
               <span className="font-serif-brand font-black text-2xl sm:text-3xl text-[#0B1B3D] tracking-wider">

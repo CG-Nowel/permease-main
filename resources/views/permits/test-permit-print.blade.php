@@ -171,7 +171,6 @@
         <!-- Main Top Title -->
         <div class="title-block">
             <div class="main-title">EXAMINATION PERMIT</div>
-            <div class="sub-curly">{ {{ strtoupper($examPeriod) }} }</div>
         </div>
 
         <!-- Student Details Block -->

@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
+// start-permease.bat sets VITE_DEV_HOST to this PC's network IP so phones can load assets
+const devHost = process.env.VITE_DEV_HOST;
+
 export default defineConfig({
     plugins: [
         laravel({
@@ -22,8 +25,12 @@ export default defineConfig({
         },
     },
     server: {
-        host: '127.0.0.1',
+        host: '0.0.0.0',
         port: 5173,
+        strictPort: true,
+        cors: true,
+        origin: devHost ? `http://${devHost}:5173` : undefined,
+        hmr: devHost ? { host: devHost } : undefined,
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },

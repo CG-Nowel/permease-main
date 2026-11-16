@@ -29,9 +29,6 @@ export const TestPermitDocument: React.FC<TestPermitDocumentProps> = ({ student,
         <h1 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-[#0B1B3D]">
           EXAMINATION PERMIT
         </h1>
-        <p className="text-xs font-bold text-slate-600 tracking-wide mt-0.5">
-          &#123; {examPeriod.toUpperCase()} &#125;
-        </p>
       </div>
 
       {/* Student Details Block */}

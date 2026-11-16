@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AcademicTerm;
+use App\Models\StudentBillingStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Validator;
 
 class AcademicTermController extends Controller
 {
+    public const EXAM_PERIODS = ['Prelim', 'Midterms', 'Pre-Finals', 'Finals'];
     /**
      * Get all academic terms and the currently active term.
      */
@@ -78,6 +80,10 @@ class AcademicTermController extends Controller
                 ->orderBy('id', 'desc')
                 ->limit(1)
                 ->update(['status' => 'Previous']);
+
+            StudentBillingStatus::query()->update([
+                'current_exam_period' => $term->exam_period ?: 'Prelim',
+            ]);
         });
 
 
@@ -100,6 +106,7 @@ class AcademicTermController extends Controller
         $validator = Validator::make($request->all(), [
             'academic_year' => ['required', 'string', 'max:50'],
             'semester' => ['required', 'string', 'max:50'],
+            'exam_period' => ['nullable', 'string', 'in:' . implode(',', self::EXAM_PERIODS)],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -112,6 +119,7 @@ class AcademicTermController extends Controller
 
         $academicYear = trim($request->input('academic_year'));
         $semester = trim($request->input('semester'));
+        $examPeriod = $request->input('exam_period') ?: 'Prelim';
         $isActive = filter_var($request->input('is_active', false), FILTER_VALIDATE_BOOLEAN);
 
         $cleanYear = str_replace(['–', '—', ' '], '-', $academicYear);
@@ -127,11 +135,15 @@ class AcademicTermController extends Controller
             ], 422);
         }
 
-        $term = DB::transaction(function () use ($code, $academicYear, $semester, $label, $isActive) {
+        $term = DB::transaction(function () use ($code, $academicYear, $semester, $examPeriod, $label, $isActive) {
             if ($isActive) {
                 AcademicTerm::query()->update([
                     'is_active' => false,
                     'status' => 'Archived',
+                ]);
+
+                StudentBillingStatus::query()->update([
+                    'current_exam_period' => $examPeriod,
                 ]);
             }
 
@@ -139,6 +151,7 @@ class AcademicTermController extends Controller
                 'code' => $code,
                 'academic_year' => $academicYear,
                 'semester' => $semester,
+                'exam_period' => $examPeriod,
                 'label' => $label,
                 'status' => $isActive ? 'Active Term' : 'Archived',
                 'is_active' => $isActive,
@@ -155,6 +168,64 @@ class AcademicTermController extends Controller
             'active_term' => $activeTerm,
             'data' => $updatedTerms,
         ], 201);
+    }
+
+    /**
+     * Set the active examination period (Prelim, Midterms, Pre-Finals, Finals) for permit printing.
+     */
+    public function setExamPeriod(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        if ($actor && strtoupper((string) $actor->role) !== 'REGISTRAR') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the Registrar can change the examination period for permit printing.',
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'exam_period' => ['required', 'string', 'in:' . implode(',', self::EXAM_PERIODS)],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $examPeriod = $request->input('exam_period');
+        $activeTerm = AcademicTerm::where('is_active', true)->first() ?? AcademicTerm::orderBy('id', 'asc')->first();
+
+        if (!$activeTerm) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active academic term found.',
+            ], 404);
+        }
+
+        DB::transaction(function () use ($activeTerm, $examPeriod) {
+            $activeTerm->update([
+                'exam_period' => $examPeriod,
+                'is_active' => true,
+                'status' => 'Active Term',
+            ]);
+
+            StudentBillingStatus::query()->update([
+                'current_exam_period' => $examPeriod,
+            ]);
+        });
+
+        $updatedTerms = AcademicTerm::orderBy('id', 'asc')->get();
+        $freshActive = AcademicTerm::find($activeTerm->id);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Active examination period updated to {$examPeriod}.",
+            'exam_period' => $examPeriod,
+            'active_term' => $freshActive,
+            'data' => $updatedTerms,
+        ]);
     }
 }
 

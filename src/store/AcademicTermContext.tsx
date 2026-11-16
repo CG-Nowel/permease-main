@@ -1,18 +1,25 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { api } from '../lib/api.ts';
-import { API_ROUTES } from '../lib/constants.ts';
+import { API_ROUTES, ExamPeriod, normalizeExamPeriod } from '../lib/constants.ts';
 import { toast } from 'sonner';
 
+export type { ExamPeriod };
 
 export interface AcademicTerm {
   id: number;
   code: string;
   academic_year: string;
   semester: string;
+  exam_period?: ExamPeriod;
   label: string;
   status: 'Active Term' | 'Previous' | 'Archived';
   is_active: boolean;
 }
+
+const withNormalizedExamPeriod = (term: AcademicTerm): AcademicTerm => ({
+  ...term,
+  exam_period: normalizeExamPeriod(term.exam_period),
+});
 
 const DEFAULT_TERMS: AcademicTerm[] = [
   {
@@ -65,12 +72,16 @@ const DEFAULT_TERMS: AcademicTerm[] = [
 interface AcademicTermContextType {
   terms: AcademicTerm[];
   activeTerm: AcademicTerm;
+  activeExamPeriod: ExamPeriod;
   isLoading: boolean;
   isUpdating: boolean;
+  refreshActiveTerm: () => Promise<ExamPeriod>;
   updateActiveTerm: (target: AcademicTerm | number | string) => Promise<boolean>;
+  updateExamPeriod: (examPeriod: ExamPeriod) => Promise<boolean>;
   addAcademicTerm: (newTermData: {
     academic_year: string;
     semester: string;
+    exam_period?: ExamPeriod;
     is_active?: boolean;
   }) => Promise<boolean>;
   getSemesterKey: () => 'firstSem' | 'secondSem';
@@ -85,56 +96,78 @@ export const AcademicTermProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [terms, setTerms] = useState<AcademicTerm[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_TERMS_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) return (JSON.parse(saved) as AcademicTerm[]).map(withNormalizedExamPeriod);
     } catch {
       // fallback
     }
-    return DEFAULT_TERMS;
+    return DEFAULT_TERMS.map(withNormalizedExamPeriod);
   });
 
   const [activeTerm, setActiveTerm] = useState<AcademicTerm>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_ACTIVE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) return withNormalizedExamPeriod(JSON.parse(saved) as AcademicTerm);
     } catch {
       // fallback
     }
-    return DEFAULT_TERMS.find((t) => t.is_active) || DEFAULT_TERMS[0];
+    return withNormalizedExamPeriod(DEFAULT_TERMS.find((t) => t.is_active) || DEFAULT_TERMS[0]);
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const activeExamPeriod = normalizeExamPeriod(activeTerm.exam_period);
+
+  const applyTermState = useCallback((updatedList: AcademicTerm[], freshActive: AcademicTerm | null) => {
+    const normalizedList = updatedList.map(withNormalizedExamPeriod);
+    setTerms(normalizedList);
+    localStorage.setItem(STORAGE_TERMS_KEY, JSON.stringify(normalizedList));
+
+    if (freshActive) {
+      const normalizedActive = withNormalizedExamPeriod(freshActive);
+      setActiveTerm(normalizedActive);
+      localStorage.setItem(STORAGE_ACTIVE_KEY, JSON.stringify(normalizedActive));
+      window.dispatchEvent(
+        new CustomEvent('permease:term-changed', {
+          detail: normalizedActive,
+        })
+      );
+      return normalizedActive;
+    }
+    return null;
+  }, []);
+
+  const refreshActiveTerm = useCallback(async (): Promise<ExamPeriod> => {
+    try {
+      const res = await api.get(API_ROUTES.ACADEMIC_TERMS.LIST);
+      if (res.data && res.data.data) {
+        const fetchedTerms: AcademicTerm[] = res.data.data;
+        const currentActive: AcademicTerm | undefined =
+          res.data.active_term ||
+          fetchedTerms.find((t) => t.is_active) ||
+          fetchedTerms[0];
+
+        const normalizedActive = applyTermState(fetchedTerms, currentActive || null);
+        if (normalizedActive) {
+          return normalizeExamPeriod(normalizedActive.exam_period);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not sync academic terms from server, using local fallback:', err);
+    }
+    return normalizeExamPeriod(activeTerm.exam_period);
+  }, [activeTerm.exam_period, applyTermState]);
+
   // Sync from backend on initial mount
   useEffect(() => {
     const fetchTerms = async () => {
-      try {
-        setIsLoading(true);
-        const res = await api.get(API_ROUTES.ACADEMIC_TERMS.LIST);
-        if (res.data && res.data.data) {
-          const fetchedTerms: AcademicTerm[] = res.data.data;
-          setTerms(fetchedTerms);
-          localStorage.setItem(STORAGE_TERMS_KEY, JSON.stringify(fetchedTerms));
-
-          const currentActive =
-            res.data.active_term ||
-            fetchedTerms.find((t) => t.is_active) ||
-            fetchedTerms[0];
-
-          if (currentActive) {
-            setActiveTerm(currentActive);
-            localStorage.setItem(STORAGE_ACTIVE_KEY, JSON.stringify(currentActive));
-          }
-        }
-      } catch (err) {
-        console.warn('Could not sync academic terms from server, using local fallback:', err);
-      } finally {
-        setIsLoading(false);
-      }
+      setIsLoading(true);
+      await refreshActiveTerm();
+      setIsLoading(false);
     };
 
     fetchTerms();
-  }, []);
+  }, [refreshActiveTerm]);
 
   // Set active academic term across the system
   const updateActiveTerm = async (target: AcademicTerm | number | string): Promise<boolean> => {
@@ -225,10 +258,53 @@ export const AcademicTermProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
+  // Set active examination period for permit printing (Registrar only)
+  const updateExamPeriod = async (examPeriod: ExamPeriod): Promise<boolean> => {
+    setIsUpdating(true);
+    try {
+      const res = await api.post(API_ROUTES.ACADEMIC_TERMS.SET_EXAM_PERIOD, {
+        exam_period: examPeriod,
+      });
+
+      if (res.data && res.data.success) {
+        const updatedList: AcademicTerm[] =
+          res.data.data ||
+          terms.map((t) => (t.id === activeTerm.id || t.is_active ? { ...t, exam_period: examPeriod } : t));
+
+        const freshActive: AcademicTerm = res.data.active_term || {
+          ...activeTerm,
+          exam_period: examPeriod,
+        };
+
+        const normalizedActive = applyTermState(updatedList, freshActive);
+        toast.success(`Examination period updated to ${normalizedActive?.exam_period || examPeriod} for permit printing.`);
+        return true;
+      }
+      throw new Error(res.data?.message || 'Failed to update examination period');
+    } catch (err: any) {
+      if (err?.response?.data?.message) {
+        toast.error(err.response.data.message);
+        return false;
+      }
+
+      console.warn('API set-exam-period unreachable, applying local fallback:', err);
+      const updatedList = terms.map((t) =>
+        t.id === activeTerm.id || t.is_active ? { ...t, exam_period: examPeriod } : t
+      );
+      const freshActive: AcademicTerm = { ...activeTerm, exam_period: examPeriod };
+      applyTermState(updatedList, freshActive);
+      toast.success(`Examination period updated to ${examPeriod} for permit printing.`);
+      return true;
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   // Create a new academic term / school year
   const addAcademicTerm = async (newTermData: {
     academic_year: string;
     semester: string;
+    exam_period?: ExamPeriod;
     is_active?: boolean;
   }): Promise<boolean> => {
     setIsUpdating(true);
@@ -337,9 +413,12 @@ export const AcademicTermProvider: React.FC<{ children: ReactNode }> = ({ childr
       value={{
         terms,
         activeTerm,
+        activeExamPeriod,
         isLoading,
         isUpdating,
+        refreshActiveTerm,
         updateActiveTerm,
+        updateExamPeriod,
         addAcademicTerm,
         getSemesterKey,
       }}

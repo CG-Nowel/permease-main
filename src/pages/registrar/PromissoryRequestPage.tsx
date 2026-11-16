@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Button, Input, Badge } from '../../components/index.ts';
 import {
   Search,
@@ -15,11 +15,11 @@ import { useStudentStore } from '../../store/studentStore.ts';
 import { useAcademicTerm } from '../../store/AcademicTermContext.tsx';
 import type { Student } from '../../types/index.ts';
 import { api } from '../../lib/api.ts';
-import { API_ROUTES } from '../../lib/constants.ts';
+import { API_ROUTES, EXAM_PERIODS, ExamPeriod } from '../../lib/constants.ts';
 
 export const PromissoryRequestPage: React.FC = () => {
   const { students, createPromissoryRequest } = useStudentStore();
-  const { activeTerm } = useAcademicTerm();
+  const { activeTerm, activeExamPeriod } = useAcademicTerm();
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -30,8 +30,12 @@ export const PromissoryRequestPage: React.FC = () => {
   const [initialPayment, setInitialPayment] = useState('2000');
   const [reason, setReason] = useState('Delayed remittance from OFW guardian/parent');
   const [remarks, setRemarks] = useState('Endorsing student for test permit release upon accounting payment clearance.');
-  const [examPeriod] = useState('Midterms');
+  const [examPeriod, setExamPeriod] = useState<ExamPeriod>(activeExamPeriod);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setExamPeriod(activeExamPeriod);
+  }, [activeExamPeriod]);
 
   // Live autocomplete matches
   const searchResults = useMemo(() => {
@@ -402,6 +406,27 @@ export const PromissoryRequestPage: React.FC = () => {
                   <p className="text-xs text-slate-500 mt-0.5">
                     Input the initial payment and endorsement reasons. Once submitted, it will reflect on the Accounting portal for payment processing.
                   </p>
+                </div>
+
+                {/* Examination Period */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Examination Period *
+                  </label>
+                  <select
+                    value={examPeriod}
+                    onChange={(e) => setExamPeriod(e.target.value as ExamPeriod)}
+                    className="w-full px-3 py-2 text-xs rounded-xs border border-slate-300 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                  >
+                    {EXAM_PERIODS.map((period) => (
+                      <option key={period} value={period}>
+                        {period}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Defaults to the active Registrar exam period ({activeExamPeriod})
+                  </span>
                 </div>
 
                 {/* Initial Payment */}

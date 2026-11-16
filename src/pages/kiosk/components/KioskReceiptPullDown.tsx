@@ -187,9 +187,9 @@ export const KioskReceiptPullDown: React.FC<KioskReceiptPullDownProps> = ({
             <div className="border-b-2 border-dashed border-slate-300 pb-2.5 mb-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <img
-                  src="/images/permease-mark.png"
+                  src="/images/logox.jpg"
                   alt="PermEase"
-                  className="h-7 w-auto object-contain opacity-95"
+                  className="h-7 w-auto object-contain opacity-95 rounded-xs"
                 />
                 <div>
                   <span className="text-[10px] font-mono font-black uppercase tracking-wider text-slate-500 block leading-tight">

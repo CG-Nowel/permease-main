@@ -123,17 +123,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex-1 flex flex-col min-h-0">
           {!collapsed ? (
             <div className="flex items-center justify-between h-16 px-4 border-b border-white/[0.08] shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-white p-1 ring-1 ring-white/20 shadow-sm flex items-center justify-center shrink-0">
-                  <img
-                    src="/images/logox.jpg"
-                    alt="Permease Logo"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <img
+                  src="/images/logox.jpg"
+                  alt="PermEase"
+                  className="h-7 sm:h-8 w-auto object-contain select-none shrink-0 rounded-md"
+                />
                 <div className="min-w-0">
-                  <span className="text-sm font-bold tracking-wider text-white block leading-tight truncate">
-                    PERMEASE
+                  <span className="font-serif-brand font-black text-white text-sm sm:text-base tracking-wider block leading-tight truncate">
+                    PERM<span className="text-[#D4AF37]">EASE</span>
                   </span>
                   <span className="text-[10px] tracking-wider text-[#D4AF37] uppercase font-semibold block leading-tight">
                     {role?.toUpperCase() === 'ACCOUNTING' ? 'Accounting Portal' : 'Registrar Portal'}
@@ -165,11 +163,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <div className="flex flex-col items-center justify-center py-3.5 px-2 border-b border-white/[0.08] gap-2.5 shrink-0">
               {/* Centered Logo */}
-              <div className="w-10 h-10 rounded-xl bg-white p-1 ring-1 ring-white/20 shadow-sm flex items-center justify-center shrink-0">
+              <div className="flex items-center justify-center py-0.5">
                 <img
                   src="/images/logox.jpg"
-                  alt="Permease Logo"
-                  className="w-full h-full object-contain"
+                  alt="PermEase"
+                  className="h-7 sm:h-8 w-auto object-contain select-none rounded-md"
                 />
               </div>
 

@@ -12,9 +12,11 @@ import {
   Loader2,
   X,
   Plus,
+  Printer,
 } from 'lucide-react';
 import { useAuth } from '../store/AuthContext.tsx';
 import { useAcademicTerm, AcademicTerm } from '../store/AcademicTermContext.tsx';
+import { EXAM_PERIODS } from '../lib/constants.ts';
 import { toast } from 'sonner';
 
 interface AdminHeaderProps {
@@ -23,9 +25,11 @@ interface AdminHeaderProps {
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({ onMobileMenuClick }) => {
   const { user } = useAuth();
-  const { activeTerm, terms, updateActiveTerm, addAcademicTerm, isUpdating } = useAcademicTerm();
+  const { activeTerm, activeExamPeriod, terms, updateActiveTerm, updateExamPeriod, addAcademicTerm, isUpdating } = useAcademicTerm();
+  const isRegistrar = user?.role?.toUpperCase() === 'REGISTRAR';
 
   const [isTermDropdownOpen, setIsTermDropdownOpen] = useState(false);
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
 
   // Term update validation confirmation modal states
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -41,12 +45,16 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onMobileMenuClick }) =
   const [isSubmittingTerm, setIsSubmittingTerm] = useState(false);
 
   const termRef = useRef<HTMLDivElement>(null);
+  const periodRef = useRef<HTMLDivElement>(null);
 
   // Close menus on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (termRef.current && !termRef.current.contains(event.target as Node)) {
         setIsTermDropdownOpen(false);
+      }
+      if (periodRef.current && !periodRef.current.contains(event.target as Node)) {
+        setIsPeriodDropdownOpen(false);
       }
     };
 
@@ -109,8 +117,77 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onMobileMenuClick }) =
         </div>
       </div>
 
-      {/* Right: Academic Year Filter */}
+      {/* Right: Exam Period & Academic Year Filter */}
       <div className="flex items-center gap-2.5">
+        {/* Examination Period Control (Registrar selects active quarter for permit printing; Accounting sees read-only) */}
+        {isRegistrar ? (
+          <div ref={periodRef} className="relative">
+            <button
+              type="button"
+              disabled={isUpdating}
+              onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+              title="Select examination period printed on student permits"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 text-emerald-900 text-xs font-medium transition-colors cursor-pointer shadow-xs focus:ring-1 focus:ring-emerald-600 disabled:opacity-60"
+            >
+              <Printer size={13} className="text-emerald-700 shrink-0" />
+              <span className="hidden md:inline text-emerald-700">Permit:</span>
+              <span className="font-bold">{activeExamPeriod}</span>
+              <ChevronDown
+                size={13}
+                className={`text-emerald-600 transition-transform duration-150 ${
+                  isPeriodDropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {isPeriodDropdownOpen && (
+              <div className="absolute right-0 mt-1.5 w-56 bg-white rounded-md shadow-lg border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1 flex items-center justify-between">
+                  <span>Permit Exam Period</span>
+                  <span className="text-[9px] text-emerald-700 font-semibold lowercase">registrar</span>
+                </div>
+                <div className="space-y-0.5 px-1">
+                  {EXAM_PERIODS.map((period) => {
+                    const isSelected = activeExamPeriod === period;
+                    return (
+                      <button
+                        key={period}
+                        type="button"
+                        onClick={async () => {
+                          setIsPeriodDropdownOpen(false);
+                          if (!isSelected) {
+                            await updateExamPeriod(period);
+                          }
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-sm text-xs transition-colors cursor-pointer text-left ${
+                          isSelected
+                            ? 'bg-emerald-50 text-emerald-800 font-bold'
+                            : 'text-slate-700 hover:bg-slate-50 font-medium'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Printer size={13} className={isSelected ? 'text-emerald-600' : 'text-slate-400'} />
+                          <span>{period}</span>
+                        </div>
+                        {isSelected && <Check size={13} className="text-emerald-600" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div
+            title="Set by Registrar for permit printing"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-50 border border-slate-200 text-slate-600 text-xs font-medium"
+          >
+            <Printer size={13} className="text-slate-400 shrink-0" />
+            <span className="hidden md:inline text-slate-500">Permit:</span>
+            <span className="font-semibold text-slate-800">{activeExamPeriod}</span>
+          </div>
+        )}
+
         {/* Academic Year Dropdown Filter */}
         <div ref={termRef} className="relative">
           <button

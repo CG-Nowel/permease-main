@@ -8,7 +8,9 @@ import { Calendar, Compass, Sparkles, CheckCircle2 } from 'lucide-react';
 
 gsap.registerPlugin(Draggable, InertiaPlugin, useGSAP);
 
-export type ExamPeriod = 'Prelims' | 'Midterms' | 'Semi-Finals' | 'Finals';
+import { ExamPeriod } from '../../../lib/constants.ts';
+
+export type { ExamPeriod };
 
 interface KioskExamDialProps {
   selectedPeriod: ExamPeriod;
@@ -17,9 +19,9 @@ interface KioskExamDialProps {
 }
 
 const PERIODS: { name: ExamPeriod; angle: number; short: string; date: string }[] = [
-  { name: 'Prelims', angle: 0, short: 'PRE', date: 'Sept 15–18' },
+  { name: 'Prelim', angle: 0, short: 'PRE', date: 'Sept 15–18' },
   { name: 'Midterms', angle: 90, short: 'MID', date: 'Oct 26–29' },
-  { name: 'Semi-Finals', angle: 180, short: 'SEM', date: 'Dec 07–10' },
+  { name: 'Pre-Finals', angle: 180, short: 'PRF', date: 'Dec 07–10' },
   { name: 'Finals', angle: 270, short: 'FIN', date: 'Jan 18–22' },
 ];
 

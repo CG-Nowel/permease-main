@@ -235,7 +235,6 @@ function buildThermalPermitHtml(payload: KioskPrintPayload): string {
   <div class="container">
     <div class="title-block">
       <div class="main-title">EXAMINATION PERMIT</div>
-      <div class="sub-curly">{ ${escapeHtml(examPeriod.toUpperCase())} }</div>
     </div>
 
     <table class="info-grid">

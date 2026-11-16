@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Badge, SkeletonCard, DataTable, Button, StatCard } from '../../components/index.ts';
 import type { Column } from '../../components/index.ts';
 import {
@@ -20,6 +20,24 @@ export const DashboardPage: React.FC = () => {
   const { students, promissoryRequests } = useStudentStore();
   const [isLoading] = useState(false);
   const pendingPromissory = promissoryRequests.filter((p) => p.status === 'PENDING').length;
+
+  const totalStudents = students.length;
+  const rfidAssignedCount = students.filter((s) => s.rfid_card && s.rfid_card.status === 'ACTIVE').length;
+  const balanceCount = students.filter((s) => s.financial_status?.status === 'WITH_BALANCE').length;
+  const clearedCount = students.filter((s) => s.financial_status?.status === 'CLEARED').length;
+  const totalPrintedPermits = useMemo(() => {
+    return students.reduce((sum, s) => {
+      const permit = s.current_permit;
+      if (!permit) return sum;
+      if (typeof permit.print_count === 'number' && permit.print_count > 0) {
+        return sum + permit.print_count;
+      }
+      if (permit.status === 'PRINTED' || permit.first_printed_at || permit.last_printed_at) {
+        return sum + 1;
+      }
+      return sum;
+    }, 0);
+  }, [students]);
 
   const columns: Column<Student>[] = [
     {
@@ -153,7 +171,7 @@ export const DashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             title="Total Students"
-            value="1,482"
+            value={totalStudents}
             subtitle="Active Enrollees"
             icon={<Users size={16} />}
             variant="blue"
@@ -161,15 +179,15 @@ export const DashboardPage: React.FC = () => {
 
           <StatCard
             title="RFID Enrolled"
-            value="1,420"
-            subtitle="95.8% Tagged"
+            value={rfidAssignedCount}
+            subtitle={`${totalStudents > 0 ? Math.round((rfidAssignedCount / totalStudents) * 100) : 0}% Tagged`}
             icon={<CreditCard size={16} />}
             variant="amber"
           />
 
           <StatCard
             title="With Balance"
-            value="184"
+            value={balanceCount}
             subtitle="Requires Clearance"
             icon={<AlertCircle size={16} />}
             variant="rose"
@@ -177,7 +195,7 @@ export const DashboardPage: React.FC = () => {
 
           <StatCard
             title="Cleared Accounts"
-            value="1,298"
+            value={clearedCount}
             subtitle="Eligible to Print"
             icon={<CheckCircle2 size={16} />}
             variant="emerald"
@@ -185,8 +203,8 @@ export const DashboardPage: React.FC = () => {
 
           <StatCard
             title="Permits Printed"
-            value="942"
-            subtitle="Self-Service Terminals"
+            value={totalPrintedPermits}
+            subtitle="Actual print records"
             icon={<Printer size={16} />}
             variant="purple"
           />

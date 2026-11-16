@@ -31,7 +31,7 @@ class PermitPdfController extends Controller
 
         $academicYear = $student->academic_year ?? ($activeTerm ? $activeTerm->academic_year : '2026-2027');
         $semester = $student->semester ?? ($activeTerm ? $activeTerm->semester : '1st Semester');
-        $examPeriod = $request->input('period') ?? ($billing ? $billing->current_exam_period : 'Prelim');
+        $examPeriod = $request->input('period') ?? ($activeTerm->exam_period ?? ($billing ? $billing->current_exam_period : 'Prelim'));
         $permitNumber = 'TP-2026-' . str_pad($student->id, 6, '0', STR_PAD_LEFT);
         $dateIssued = now()->format('F d, Y');
 
@@ -108,7 +108,7 @@ class PermitPdfController extends Controller
 
         $academicYear = $student->academic_year ?? ($activeTerm ? $activeTerm->academic_year : '2026-2027');
         $semester = $student->semester ?? ($activeTerm ? $activeTerm->semester : '1st Semester');
-        $examPeriod = $request->input('period') ?? ($billing ? $billing->current_exam_period : 'Prelim');
+        $examPeriod = $request->input('period') ?? ($activeTerm->exam_period ?? ($billing ? $billing->current_exam_period : 'Prelim'));
         $permitNumber = 'TP-2026-' . str_pad($student->id, 6, '0', STR_PAD_LEFT);
         $dateIssued = now()->format('F d, Y');
 

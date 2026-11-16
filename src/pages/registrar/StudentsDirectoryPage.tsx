@@ -29,6 +29,20 @@ export const StudentsDirectoryPage: React.FC = () => {
   const rfidAssignedCount = students.filter((s) => s.rfid_card && s.rfid_card.status === 'ACTIVE').length;
   const clearedCount = students.filter((s) => s.financial_status?.status === 'CLEARED').length;
   const balanceCount = students.filter((s) => s.financial_status?.status === 'WITH_BALANCE').length;
+  const totalPrintedPermits = useMemo(() => {
+    return students.reduce((sum, s) => {
+      const permit = s.current_permit;
+      if (!permit) return sum;
+      // Count based on actual print records (initial prints + reprints)
+      if (typeof permit.print_count === 'number' && permit.print_count > 0) {
+        return sum + permit.print_count;
+      }
+      if (permit.status === 'PRINTED' || permit.first_printed_at || permit.last_printed_at) {
+        return sum + 1;
+      }
+      return sum;
+    }, 0);
+  }, [students]);
 
   // Filtered dataset
   const filteredStudents = useMemo(() => {
@@ -245,7 +259,7 @@ export const StudentsDirectoryPage: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-[#1E40AF] text-xs font-semibold shadow-2xs mr-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-[#1E40AF] text-xs font-semibold shadow-2xs">
             <Calendar size={14} className="text-[#1E40AF] shrink-0" />
             <span>Active Term: {activeTerm.label}</span>
           </div>
@@ -270,7 +284,7 @@ export const StudentsDirectoryPage: React.FC = () => {
 
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard
           title="Total Students"
           value={totalStudents}
@@ -297,6 +311,13 @@ export const StudentsDirectoryPage: React.FC = () => {
           value={balanceCount}
           subtitle="Accounting review needed"
           variant="rose"
+        />
+
+        <StatCard
+          title="Printed Exam Permits"
+          value={totalPrintedPermits}
+          subtitle="Actual print records"
+          variant="purple"
         />
       </div>
 

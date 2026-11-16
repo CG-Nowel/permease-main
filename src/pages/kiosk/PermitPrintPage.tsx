@@ -12,7 +12,7 @@ export const PermitPrintPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { activeTerm } = useAcademicTerm();
-  const { students } = useStudentStore();
+  const { students, markPermitPrinted } = useStudentStore();
 
   const [student, setStudent] = useState<Student | null>(() => {
     return students.find((s) => s.id === Number(id)) || null;
@@ -39,6 +39,13 @@ export const PermitPrintPage: React.FC = () => {
   }, [id, student]);
 
   const handlePrint = () => {
+    if (student?.id) {
+      try {
+        markPermitPrinted(student.id);
+      } catch (e) {
+        console.warn('Could not mark permit as printed:', e);
+      }
+    }
     window.print();
   };
 

@@ -527,9 +527,11 @@ export const PromissoryAccountingPage: React.FC = () => {
               {/* Institutional Header */}
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xs bg-white p-1 ring-1 ring-slate-200 flex items-center justify-center">
-                    <img src="/images/logox.jpg" alt="Logo" className="w-full h-full object-contain" />
-                  </div>
+                  <img
+                    src="/images/logox.jpg"
+                    alt="PermEase"
+                    className="h-8 w-auto object-contain select-none shrink-0 rounded-xs"
+                  />
                   <div>
                     <span className="font-black text-sm text-[#0B1B3D] block leading-tight">PERMEASE</span>
                     <span className="text-[10px] text-slate-500 font-semibold uppercase">Accounting Division</span>

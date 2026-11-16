@@ -19,7 +19,7 @@ class StudentController extends Controller
     /**
      * Format a Student model with live billing, permit, and reprint authorization status.
      */
-    private function formatStudentPayload(Student $student, ?string $defaultAy = null, ?string $defaultSem = null): array
+    private function formatStudentPayload(Student $student, ?string $defaultAy = null, ?string $defaultSem = null, ?string $defaultExamPeriod = null): array
     {
         $student->loadMissing(['billingStatus', 'subjects', 'reprintRequests']);
 
@@ -37,12 +37,13 @@ class StudentController extends Controller
             ->where('reprint_status', 'USED')
             ->count();
 
+        $hasPrintedInitial = $billing && $billing->exam_permit_status === 'PRINTED';
         $permitStatus = 'BLOCKED';
         if ($isCleared) {
-            $permitStatus = ($billing->exam_permit_status === 'PRINTED') ? 'PRINTED' : 'AVAILABLE';
+            $permitStatus = $hasPrintedInitial ? 'PRINTED' : 'AVAILABLE';
         }
 
-        $printCount = ($permitStatus === 'PRINTED' ? 1 : 0) + $consumedReprints;
+        $printCount = ($hasPrintedInitial ? 1 : 0) + $consumedReprints;
         $reprintAllowed = $isCleared && $activeReprint !== null;
 
         return [
@@ -78,7 +79,7 @@ class StudentController extends Controller
                 'permit_number' => 'TP-2026-' . str_pad($student->id, 6, '0', STR_PAD_LEFT),
                 'academic_year' => $student->academic_year ?? $defaultAy ?? '2026-2027',
                 'semester' => $student->semester ?? $defaultSem ?? '1st Semester',
-                'exam_period' => $billing ? $billing->current_exam_period : 'Prelim',
+                'exam_period' => $defaultExamPeriod ?? (AcademicTerm::where('is_active', true)->value('exam_period') ?? ($billing ? $billing->current_exam_period : 'Prelim')),
                 'status' => $permitStatus,
                 'print_count' => $printCount,
                 'reprint_allowed' => $reprintAllowed,
@@ -95,10 +96,11 @@ class StudentController extends Controller
         $activeTerm = AcademicTerm::where('is_active', true)->first();
         $defaultAy = $activeTerm ? $activeTerm->academic_year : '2025–2026';
         $defaultSem = $activeTerm ? $activeTerm->semester : '2nd Sem';
+        $defaultExamPeriod = $activeTerm && $activeTerm->exam_period ? $activeTerm->exam_period : 'Prelim';
 
         $students = Student::with(['billingStatus', 'subjects', 'reprintRequests'])->latest()->get();
 
-        $formatted = $students->map(fn ($s) => $this->formatStudentPayload($s, $defaultAy, $defaultSem));
+        $formatted = $students->map(fn ($s) => $this->formatStudentPayload($s, $defaultAy, $defaultSem, $defaultExamPeriod));
 
         return response()->json([
             'success' => true,
@@ -195,7 +197,7 @@ class StudentController extends Controller
                     'total_paid' => 0.00,
                     'billing_status' => 'WITH_BALANCE',    // Requirement: all registered students have WITH_BALANCE
                     'exam_permit_status' => 'BLOCKED',     // Blocked until settled or approved promissory
-                    'current_exam_period' => 'Prelim',
+                    'current_exam_period' => AcademicTerm::where('is_active', true)->value('exam_period') ?? 'Prelim',
                     'last_cleared_at' => null,
                 ]);
 
@@ -404,7 +406,7 @@ class StudentController extends Controller
                         'total_paid' => $newStatus === 'CLEARED' ? 15500.00 : 0.00,
                         'billing_status' => $newStatus,
                         'exam_permit_status' => $newStatus === 'CLEARED' ? 'AVAILABLE' : 'BLOCKED',
-                        'current_exam_period' => 'Prelim',
+                        'current_exam_period' => AcademicTerm::where('is_active', true)->value('exam_period') ?? 'Prelim',
                         'last_cleared_at' => $newStatus === 'CLEARED' ? now() : null,
                     ]);
                     $student->update(['billing_status_id' => $billing->id]);

@@ -60,17 +60,14 @@ export const PermEaseLogo: React.FC<PermEaseLogoProps> = ({
 
   // Standalone Mark Only
   if (iconOnly || mode === 'mark') {
-    const markSrc =
-      variant === 'dark'
-        ? '/images/permease-mark-lightrim.png'
-        : '/images/permease-mark.png';
+    const markSrc = '/images/logox.jpg';
 
     return (
       <div className={`inline-flex items-center justify-center select-none ${className}`}>
         <img
           src={markSrc}
           alt="PermEase Mark"
-          className={`${sizeConfig.markH} w-auto object-contain drop-shadow-md select-none`}
+          className={`${sizeConfig.markH} w-auto object-contain drop-shadow-md select-none rounded-md`}
         />
       </div>
     );
@@ -110,9 +107,9 @@ export const PermEaseLogo: React.FC<PermEaseLogoProps> = ({
             className={`relative ${sizeConfig.badgePad} rounded-2xl bg-white border-2 border-[#D4AF37] shadow-2xl flex items-center ${sizeConfig.gap}`}
           >
             <img
-              src="/images/permease-mark.png"
+              src="/images/logox.jpg"
               alt="PermEase Mark"
-              className={`${sizeConfig.markH} w-auto object-contain drop-shadow-sm select-none`}
+              className={`${sizeConfig.markH} w-auto object-contain drop-shadow-sm select-none rounded-md`}
             />
             <div className="flex flex-col text-left">
               <span className={`font-serif-brand font-black text-[#0B1B3D] uppercase ${sizeConfig.title}`}>
@@ -142,9 +139,9 @@ export const PermEaseLogo: React.FC<PermEaseLogoProps> = ({
         <div className="relative flex items-center justify-center shrink-0">
           <div className="absolute inset-0 bg-[#D4AF37]/15 blur-lg rounded-full pointer-events-none" />
           <img
-            src="/images/permease-mark-lightrim.png"
+            src="/images/logox.jpg"
             alt="PermEase Mark"
-            className={`${sizeConfig.markH} w-auto object-contain drop-shadow-[0_4px_12px_rgba(212,175,55,0.25)] select-none`}
+            className={`${sizeConfig.markH} w-auto object-contain drop-shadow-[0_4px_12px_rgba(212,175,55,0.25)] select-none rounded-md`}
           />
         </div>
         <div className="flex flex-col text-left">
@@ -173,9 +170,9 @@ export const PermEaseLogo: React.FC<PermEaseLogoProps> = ({
   return (
     <div className={`inline-flex items-center ${sizeConfig.gap} select-none ${className}`}>
       <img
-        src="/images/permease-mark.png"
+        src="/images/logox.jpg"
         alt="PermEase Mark"
-        className={`${sizeConfig.markH} w-auto object-contain select-none`}
+        className={`${sizeConfig.markH} w-auto object-contain select-none rounded-md`}
       />
       <div className="flex flex-col text-left">
         <span className={`font-serif-brand font-black text-[#0B1B3D] uppercase tracking-wider ${sizeConfig.title}`}>
