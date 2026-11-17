@@ -296,14 +296,15 @@ export const presetCurriculums: ProgramCurriculum[] = [
       },
       '4th Year': {
         firstSem: [
-          { code: 'BA 401', title: 'Business Feasibility Study 2 (Defense)', units: 3, type: 'Major' },
-          { code: 'BA 402', title: 'Investment & Portfolio Management', units: 3, type: 'Major' },
-          { code: 'ELEC 3', title: 'BA Elective 3: Business Analytics', units: 3, type: 'Elective' },
-          { code: 'GE 107', title: 'Life and Works of Rizal', units: 3, type: 'General Education' },
+          { code: 'BUSS1024', title: 'Feasability Study', units: 3, type: 'Major' },
+          { code: 'BUSS1025', title: 'Entrepreneural Management', units: 3, type: 'Major' },
+          { code: 'BUSS1020', title: 'Financial Management', units: 3, type: 'Elective' },
+          { code: 'BUSS1026', title: 'Marketing Management', units: 3, type: 'General Education' },
+          { code: 'STIC1007', title: 'Euthenics 2', units: 1, type: 'Elective' },
+          { code: 'BUSS1027', title: 'Special Topics in Operation Management', units: 3, type: 'General Education' },
         ],
         secondSem: [
-          { code: 'BA 403', title: 'Corporate Internship / OJT (600 Hours)', units: 6, type: 'Major' },
-          { code: 'BA 404', title: 'Business Integration Seminar', units: 3, type: 'Institutional' },
+          { code: 'OJTC1005', title: 'Practicum (600 hours)', units: 6, type: 'Major' },
         ],
       },
     },
