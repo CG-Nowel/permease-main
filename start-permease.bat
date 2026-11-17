@@ -11,7 +11,7 @@ rem  can load the page assets from the Vite dev server.
 rem ============================================================
 
 rem ---- SETTINGS (edit if needed) ------------------------------
-set "PORT=8000"
+set "PORT=8010"
 set "VITE_PORT=5173"
 rem -------------------------------------------------------------
 
