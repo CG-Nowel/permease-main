@@ -9,14 +9,21 @@ import {
   Printer,
   FileSignature,
   FileCheck2,
+  Check,
+  Calendar,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStudentStore } from '../../store/studentStore.ts';
-import { ROUTES } from '../../lib/constants.ts';
+import { useAcademicTerm } from '../../store/AcademicTermContext.tsx';
+import { useAuth } from '../../store/AuthContext.tsx';
+import { ROUTES, EXAM_PERIODS } from '../../lib/constants.ts';
 import type { Student } from '../../types/index.ts';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { activeTerm, activeExamPeriod, updateExamPeriod, isUpdating } = useAcademicTerm();
+  const isRegistrar = user?.role?.toUpperCase() === 'REGISTRAR' || !user?.role;
   const { students, promissoryRequests } = useStudentStore();
   const [isLoading] = useState(false);
   const pendingPromissory = promissoryRequests.filter((p) => p.status === 'PENDING').length;
@@ -157,6 +164,58 @@ export const DashboardPage: React.FC = () => {
           >
             Kiosk Terminal
           </Button>
+        </div>
+      </div>
+
+      {/* Registrar Examination Period Printing Control Card */}
+      <div className="bg-gradient-to-r from-[#0B1B3D] via-[#11285A] to-[#1E3A8A] rounded-xl p-4 sm:p-5 text-white shadow-lg border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1 max-w-xl">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="p-1.5 rounded-lg bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37]">
+              <Printer size={16} />
+            </span>
+            <h2 className="text-sm sm:text-base font-bold tracking-tight text-white">
+              Permit Printing Quarter:
+            </h2>
+            <span className="text-xs uppercase font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold">
+              {activeExamPeriod}
+            </span>
+            <span className="text-[11px] font-medium text-blue-200">
+              ({activeTerm.label})
+            </span>
+          </div>
+          <p className="text-xs text-slate-300">
+            {isRegistrar
+              ? 'Click a quarter below to set which examination period prints on student test permits at the Kiosk.'
+              : 'Controlled by Registrar. This examination period is currently printed on all student test permits.'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-black/40 p-1.5 rounded-xl border border-white/10 self-start md:self-auto flex-wrap">
+          {EXAM_PERIODS.map((period) => {
+            const isSelected = activeExamPeriod === period;
+            return (
+              <button
+                key={period}
+                type="button"
+                disabled={!isRegistrar || isUpdating}
+                onClick={() => void updateExamPeriod(period)}
+                title={isRegistrar ? `Set active permit printing period to ${period}` : 'Controlled by Registrar'}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 select-none ${
+                  !isRegistrar
+                    ? isSelected
+                      ? 'bg-[#D4AF37] text-slate-950 font-black cursor-default'
+                      : 'text-slate-400 opacity-60 cursor-not-allowed'
+                    : isSelected
+                    ? 'bg-[#D4AF37] text-slate-950 font-black shadow-md ring-1 ring-white/60 cursor-default scale-105'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer'
+                }`}
+              >
+                {isSelected && <Check size={13} className="stroke-[3]" />}
+                <span>{period}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

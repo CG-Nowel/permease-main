@@ -2,9 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, DataTable, Button, StatCard } from '../../components/index.ts';
 import type { Column } from '../../components/index.ts';
-import { FileSignature, UserPlus, Calendar } from 'lucide-react';
+import { FileSignature, UserPlus, Calendar, Printer, Check, ChevronDown } from 'lucide-react';
 import { useStudentStore } from '../../store/studentStore.ts';
 import { useAcademicTerm } from '../../store/AcademicTermContext.tsx';
+import { EXAM_PERIODS } from '../../lib/constants.ts';
 import type { Student } from '../../types/index.ts';
 import { ManageStudentModal } from './components/ManageStudentModal.tsx';
 import { api } from '../../lib/api.ts';
@@ -12,7 +13,7 @@ import { api } from '../../lib/api.ts';
 export const StudentsDirectoryPage: React.FC = () => {
   const navigate = useNavigate();
   const { students, updateStudent } = useStudentStore();
-  const { activeTerm } = useAcademicTerm();
+  const { activeTerm, activeExamPeriod, updateExamPeriod, isUpdating } = useAcademicTerm();
 
 
   // Manage Modal state
@@ -263,6 +264,37 @@ export const StudentsDirectoryPage: React.FC = () => {
             <Calendar size={14} className="text-[#1E40AF] shrink-0" />
             <span>Active Term: {activeTerm.label}</span>
           </div>
+
+          {/* Registrar 4-Quarter Examination Period Dropdown */}
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs shadow-2xs"
+            title="Choose which quarter period is printed on student test permits at the Kiosk"
+          >
+            <span className="inline-flex items-center gap-1 font-bold text-emerald-900 text-xs shrink-0">
+              <Printer size={13} className="text-emerald-700" />
+              <span>Print Permit:</span>
+            </span>
+            <div className="relative inline-flex items-center">
+              <select
+                aria-label="Select examination period printed on student permits"
+                disabled={isUpdating}
+                value={activeExamPeriod}
+                onChange={(e) => void updateExamPeriod(e.target.value as 'Prelim' | 'Midterms' | 'Pre-Finals' | 'Finals')}
+                className="appearance-none bg-white hover:bg-slate-50 border border-emerald-300 text-emerald-950 font-bold text-xs rounded-md pl-2.5 pr-7 py-1 cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 transition-colors disabled:opacity-60"
+              >
+                {EXAM_PERIODS.map((period) => (
+                  <option key={period} value={period}>
+                    {period}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={12}
+                className="text-emerald-700 absolute right-2 pointer-events-none"
+              />
+            </div>
+          </div>
+
           <Button
             variant="gold"
             size="sm"
