@@ -1,0 +1,1 @@
+Other devices on the same Wi-Fi open: http://192.168.100.223:8010
