@@ -14,6 +14,7 @@ import {
   Plus,
   Printer,
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext.tsx';
 import { useAcademicTerm, AcademicTerm } from '../store/AcademicTermContext.tsx';
 import { EXAM_PERIODS } from '../lib/constants.ts';
@@ -25,8 +26,9 @@ interface AdminHeaderProps {
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({ onMobileMenuClick }) => {
   const { user } = useAuth();
+  const location = useLocation();
   const { activeTerm, activeExamPeriod, terms, updateActiveTerm, updateExamPeriod, addAcademicTerm, isUpdating } = useAcademicTerm();
-  const isRegistrar = user?.role?.toUpperCase() === 'REGISTRAR';
+  const isRegistrar = user?.role?.toUpperCase() === 'REGISTRAR' || location.pathname.startsWith('/registrar');
 
   const [isTermDropdownOpen, setIsTermDropdownOpen] = useState(false);
   const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);

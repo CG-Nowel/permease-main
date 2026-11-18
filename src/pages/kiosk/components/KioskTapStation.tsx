@@ -198,16 +198,15 @@ export const KioskTapStation: React.FC<KioskTapStationProps> = ({
                 className="flex items-center justify-between z-10"
                 style={{ transform: 'translateZ(24px)' }}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-300 to-[#D4AF37] text-slate-950 flex items-center justify-center font-black text-base shadow-md border border-amber-200 shrink-0">
-                    P
-                  </div>
-                  <div>
-                    <span className="font-serif-brand font-black text-base sm:text-lg text-[#FFF2B2] tracking-wider uppercase block leading-none drop-shadow-sm">
-                      PERMEASE SMART PASS
-                    </span>
-                    <span className="text-[10px] sm:text-xs font-mono text-[#D4AF37] uppercase tracking-widest block mt-1 font-bold">
-                      OFFICIAL STUDENT RFID BADGE
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <img
+                    alt="PermEase"
+                    className="h-7 sm:h-8 w-auto object-contain select-none rounded-md"
+                    src="/images/logox.jpg"
+                  />
+                  <div className="flex flex-col text-left">
+                    <span className="font-serif-brand font-black text-white text-sm sm:text-base tracking-wider whitespace-nowrap leading-tight">
+                      PERM<span className="text-[#D4AF37]">EASE</span>
                     </span>
                   </div>
                 </div>
