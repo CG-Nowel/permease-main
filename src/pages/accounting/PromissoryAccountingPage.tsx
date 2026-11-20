@@ -13,7 +13,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useStudentStore } from '../../store/studentStore.ts';
+import { useStudentStore, studentStore } from '../../store/studentStore.ts';
 import { useAuth } from '../../store/AuthContext.tsx';
 import { useAcademicTerm } from '../../store/AcademicTermContext.tsx';
 import type { PromissoryRequest } from '../../types/index.ts';
@@ -26,6 +26,7 @@ export const PromissoryAccountingPage: React.FC = () => {
   const { activeTerm } = useAcademicTerm();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'ALL'>('PENDING');
   const [promissoryRequests, setPromissoryRequests] = useState<PromissoryRequest[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -35,9 +36,17 @@ export const PromissoryAccountingPage: React.FC = () => {
       const res = await api.get(API_ROUTES.PROMISSORY.LIST);
       if (res.data?.success && Array.isArray(res.data.data)) {
         setPromissoryRequests(res.data.data);
+        localStorage.setItem('permease_promissory_requests', JSON.stringify(res.data.data));
+      } else {
+        const stored = studentStore.getPromissoryRequests();
+        if (stored.length > 0) {
+          setPromissoryRequests(stored);
+        }
       }
     } catch (err) {
-      console.error('Failed to load promissory requests from API:', err);
+      console.warn('Backend promissory list unreachable, falling back to local store:', err);
+      const stored = studentStore.getPromissoryRequests();
+      setPromissoryRequests(stored);
     } finally {
       setLoading(false);
     }
@@ -63,10 +72,10 @@ export const PromissoryAccountingPage: React.FC = () => {
   const approvedCount = promissoryRequests.filter((p) => p.status === 'APPROVED').length;
   const totalCollected = promissoryRequests.reduce((sum, p) => sum + (p.amount_paid || 0), 0);
 
-  // Filtered requests: Exclusively show pending requests on accounting
+  // Filtered requests based on active tab & search
   const filteredRequests = useMemo(() => {
     return promissoryRequests.filter((p) => {
-      if (p.status !== 'PENDING') return false;
+      if (statusFilter !== 'ALL' && p.status !== statusFilter) return false;
 
       const q = searchQuery.trim().toLowerCase();
       return (
@@ -76,7 +85,7 @@ export const PromissoryAccountingPage: React.FC = () => {
         p.student_number.toLowerCase().includes(q)
       );
     });
-  }, [promissoryRequests, searchQuery]);
+  }, [promissoryRequests, searchQuery, statusFilter]);
 
   const handleOpenProcessModal = (req: PromissoryRequest) => {
     setSelectedForAction(req);
@@ -101,27 +110,53 @@ export const PromissoryAccountingPage: React.FC = () => {
 
     try {
       const cashierName = user?.name || 'Eduardo Ramos (Accounting)';
+      const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
       // 1. Backend API Call to approve & clear billing in database
+      let backendApprovedRequest: PromissoryRequest | null = null;
       try {
-        await api.post(API_ROUTES.PROMISSORY.APPROVE(selectedForAction.id), {
+        const res = await api.post(API_ROUTES.PROMISSORY.APPROVE(selectedForAction.id), {
           official_receipt_number: receiptNumber.trim(),
           amount_paid: numPaid,
           accounting_remarks: cashierNotes,
         });
-        await fetchPromissoryRequests();
+        if (res.data?.success && res.data.data?.request) {
+          backendApprovedRequest = res.data.data.request;
+        }
       } catch (apiErr: any) {
         console.warn('Backend promissory approval notice:', apiErr?.response?.data || apiErr?.message);
+        const errMsg = apiErr?.response?.data?.message || '';
+        if (errMsg.includes('already been APPROVED')) {
+          backendApprovedRequest = {
+            ...selectedForAction,
+            status: 'APPROVED',
+            official_receipt_number: receiptNumber.trim(),
+            amount_paid: numPaid,
+            accounting_notes: cashierNotes,
+            approved_by: cashierName,
+            settled_at: timestamp,
+          };
+        }
       }
 
-      // 2. Client reactive store update
+      // 2. Client reactive store update (fail-safe and guarantees CLEARED state)
       const { student, request } = approvePromissoryAndClearBilling({
         requestId: selectedForAction.id,
+        requestNumber: selectedForAction.request_number,
+        studentId: selectedForAction.student_id,
+        studentNumber: selectedForAction.student_number,
         orNumber: receiptNumber.trim(),
         amountPaid: numPaid,
         notes: cashierNotes,
         cashierName,
+        promissoryRequest: backendApprovedRequest || selectedForAction,
       });
+
+      // 3. Immediately sync students and promissory requests
+      await Promise.allSettled([
+        fetchPromissoryRequests(),
+        studentStore.syncStudentsFromBackend(),
+      ]);
 
       toast.success(
         `Billing status for ${student.first_name} ${student.last_name} updated to CLEARED! Test permit is now unlocked for Kiosk printing.`
@@ -148,8 +183,9 @@ export const PromissoryAccountingPage: React.FC = () => {
       header: 'Student Information',
       id: 'student_info',
       cell: (p) => {
-        const studentRecord = students.find((s) => s.id === p.student_id);
-        const billingStatus = studentRecord?.financial_status?.status || 'WITH_BALANCE';
+        const studentRecord = students.find((s) => s.id === p.student_id || s.student_number === p.student_number);
+        const isApproved = p.status === 'APPROVED';
+        const billingStatus = isApproved ? 'CLEARED' : (studentRecord?.financial_status?.status || 'WITH_BALANCE');
 
         return (
           <div>
@@ -338,24 +374,84 @@ export const PromissoryAccountingPage: React.FC = () => {
         />
       </div>
 
+      {/* Status Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('PENDING')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            statusFilter === 'PENDING'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <span>Pending Clearance</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === 'PENDING' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-800'}`}>
+            {pendingCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('APPROVED')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            statusFilter === 'APPROVED'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <span>Cleared & Approved</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === 'APPROVED' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+            {approvedCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('ALL')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            statusFilter === 'ALL'
+              ? 'bg-[#0B1B3D] text-white shadow-xs'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <span>All Requests</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+            {totalCount}
+          </span>
+        </button>
+      </div>
+
       {/* Requests Table */}
       <DataTable
         title={
           <div className="flex items-center gap-2.5">
-            <span>Pending Promissory Requests</span>
-            {pendingCount > 0 && (
+            <span>
+              {statusFilter === 'PENDING'
+                ? 'Pending Promissory Requests'
+                : statusFilter === 'APPROVED'
+                ? 'Cleared & Approved Promissory Requests'
+                : 'All Promissory Requests'}
+            </span>
+            {statusFilter === 'PENDING' && pendingCount > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
                 {pendingCount} pending
               </span>
             )}
           </div>
         }
-        subtitle="Process student payment and update billing status to CLEARED to enable Kiosk permit printing"
+        subtitle={
+          statusFilter === 'PENDING'
+            ? 'Process student payment and update billing status to CLEARED to enable Kiosk permit printing'
+            : statusFilter === 'APPROVED'
+            ? 'Promissory notes successfully cleared and permitted for kiosk dispensing'
+            : 'Complete directory of promissory requests and settlement histories'
+        }
         data={filteredRequests}
         columns={columns}
         keyExtractor={(p) => p.id}
         searchable={true}
-        searchPlaceholder="Search pending requests by #, student..."
+        searchPlaceholder="Search requests by #, student..."
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
       />

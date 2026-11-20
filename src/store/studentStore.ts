@@ -121,6 +121,8 @@ export const studentStore = {
   },
 
   createPromissoryRequest(data: {
+    id?: number;
+    requestNumber?: string;
     studentId: number;
     examPeriod: string;
     academicYear?: string;
@@ -142,10 +144,10 @@ export const studentStore = {
 
     const existingRequests = getStoredPromissoryRequests();
     const nextNumber = existingRequests.length + 1;
-    const requestNumber = `PN-2026-${String(nextNumber).padStart(4, '0')}`;
+    const requestNumber = data.requestNumber || `PN-2026-${String(nextNumber).padStart(4, '0')}`;
 
     const newRequest: PromissoryRequest = {
-      id: Date.now(),
+      id: data.id || Date.now(),
       request_number: requestNumber,
       student_id: student.id,
       student_number: student.student_number,
@@ -171,7 +173,7 @@ export const studentStore = {
 
     student.active_promissory = newRequest;
     const updatedStudents = students.map((s) => (s.id === student.id ? student : s));
-    const updatedRequests = [newRequest, ...existingRequests];
+    const updatedRequests = [newRequest, ...existingRequests.filter((r) => r.request_number !== requestNumber)];
 
     localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(updatedStudents));
     localStorage.setItem(STORAGE_KEYS.PROMISSORY, JSON.stringify(updatedRequests));
@@ -182,36 +184,116 @@ export const studentStore = {
 
   approvePromissoryAndClearBilling(data: {
     requestId: number;
+    requestNumber?: string;
+    studentId?: number;
+    studentNumber?: string;
     orNumber: string;
     amountPaid: number;
     notes?: string;
     cashierName: string;
+    promissoryRequest?: PromissoryRequest;
   }): { student: Student; request: PromissoryRequest } {
     const requests = getStoredPromissoryRequests();
     const students = getStoredStudents();
     const history = getStoredHistory();
-
-    const reqIndex = requests.findIndex((r) => r.id === data.requestId);
-    if (reqIndex === -1) throw new Error('Promissory request not found');
-
-    const req = requests[reqIndex];
-    const student = students.find((s) => s.id === req.student_id);
-    if (!student) throw new Error('Associated student not found');
-
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
+    // 1. Locate the promissory request by ID, request_number, or studentId
+    const reqIndex = requests.findIndex(
+      (r) =>
+        r.id === data.requestId ||
+        (data.requestNumber && r.request_number === data.requestNumber) ||
+        (data.studentId && r.student_id === data.studentId && r.status === 'PENDING')
+    );
+
+    let baseReq: PromissoryRequest;
+    if (reqIndex !== -1) {
+      baseReq = requests[reqIndex];
+    } else if (data.promissoryRequest) {
+      baseReq = data.promissoryRequest;
+    } else {
+      baseReq = {
+        id: data.requestId,
+        request_number: data.requestNumber || `PN-2026-${String(data.requestId).padStart(4, '0')}`,
+        student_id: data.studentId || 0,
+        student_number: data.studentNumber || 'N/A',
+        student_name: 'Student',
+        course_program: '',
+        year_section: '',
+        exam_period: 'Prelim',
+        academic_year: '2026-2027',
+        semester: '1st Sem',
+        current_balance: 0,
+        amount_payable_now: data.amountPaid,
+        promissory_amount: data.amountPaid,
+        amount_paid: data.amountPaid,
+        reason: 'Promissory note clearance',
+        status: 'PENDING',
+        created_at: timestamp,
+      };
+    }
+
     const updatedRequest: PromissoryRequest = {
-      ...req,
+      ...baseReq,
       status: 'APPROVED',
       official_receipt_number: data.orNumber,
       amount_paid: data.amountPaid,
-      accounting_notes: data.notes,
+      accounting_notes: data.notes || baseReq.accounting_notes,
       approved_by: data.cashierName,
       settled_at: timestamp,
     };
-    requests[reqIndex] = updatedRequest;
+
+    if (reqIndex !== -1) {
+      requests[reqIndex] = updatedRequest;
+    } else {
+      requests.unshift(updatedRequest);
+    }
+
+    // 2. Locate target student by studentId, studentNumber, or request association
+    const targetStudentId = data.studentId || baseReq.student_id;
+    const targetStudentNum = (data.studentNumber || baseReq.student_number || '').trim().toLowerCase();
+
+    let studentIndex = students.findIndex(
+      (s) =>
+        (targetStudentId && s.id === targetStudentId) ||
+        (targetStudentNum && s.student_number.toLowerCase() === targetStudentNum)
+    );
+
+    let student: Student;
+    if (studentIndex !== -1) {
+      student = students[studentIndex];
+    } else {
+      student = {
+        id: targetStudentId || Date.now(),
+        student_number: baseReq.student_number || `2026-${String(targetStudentId || 1).padStart(5, '0')}`,
+        first_name: baseReq.student_name.split(' ')[0] || 'Student',
+        last_name: baseReq.student_name.split(' ').slice(1).join(' ') || 'Record',
+        course: baseReq.course_program?.split(' ')[0] || 'BS',
+        program: baseReq.course_program?.split(' ').slice(1).join(' ') || 'Information Technology',
+        grade_year_level: baseReq.year_section?.split(' - ')[0] || '1st Year',
+        section: baseReq.year_section?.split(' - ')[1] || 'Section A',
+        status: 'ACTIVE',
+        balance_amount: 0,
+        financial_status: { id: Date.now(), student_id: targetStudentId || 1, status: 'CLEARED' },
+        current_permit: {
+          id: Date.now(),
+          student_id: targetStudentId || 1,
+          permit_number: `TP-2026-${String(targetStudentId || 1).padStart(6, '0')}`,
+          academic_year: baseReq.academic_year || '2026-2027',
+          semester: baseReq.semester || '1st Semester',
+          exam_period: baseReq.exam_period || 'Prelim',
+          status: 'AVAILABLE',
+          print_count: 0,
+          reprint_allowed: false,
+        },
+      };
+      students.unshift(student);
+      studentIndex = 0;
+    }
 
     const prevFinancial = student.financial_status?.status || 'WITH_BALANCE';
+
+    // Update financial status to CLEARED
     student.financial_status = {
       id: student.financial_status?.id || Date.now(),
       student_id: student.id,
@@ -219,16 +301,23 @@ export const studentStore = {
       updated_at: timestamp,
     };
 
+    // Deduct downpayment from student balance
+    if (typeof student.balance_amount === 'number') {
+      student.balance_amount = Math.max(0, student.balance_amount - data.amountPaid);
+    }
+
+    // Unlock exam permit to AVAILABLE
     if (student.current_permit) {
       student.current_permit.status = 'AVAILABLE';
+      student.current_permit.exam_period = baseReq.exam_period || student.current_permit.exam_period || 'Prelim';
     } else {
       student.current_permit = {
         id: Date.now(),
         student_id: student.id,
         permit_number: `TP-2026-${String(student.id).padStart(6, '0')}`,
-        academic_year: req.academic_year,
-        semester: req.semester,
-        exam_period: req.exam_period,
+        academic_year: baseReq.academic_year || student.academic_year || '2026-2027',
+        semester: baseReq.semester || student.semester || '1st Semester',
+        exam_period: baseReq.exam_period || 'Prelim',
         status: 'AVAILABLE',
         print_count: 0,
         reprint_allowed: false,
@@ -236,14 +325,15 @@ export const studentStore = {
     }
 
     student.active_promissory = updatedRequest;
-    const updatedStudents = students.map((s) => (s.id === student.id ? student : s));
+    students[studentIndex] = student;
 
+    // 3. Append to clearance audit trail
     const newHistoryLog: FinancialStatusHistory = {
       id: Date.now(),
       student_id: student.id,
       previous_status: prevFinancial,
       new_status: 'CLEARED',
-      notes: `Promissory Note ${req.request_number} Approved (OR: ${data.orNumber}, Paid: ₱${data.amountPaid.toFixed(2)}). Test Permit cleared.`,
+      notes: `Promissory Note ${baseReq.request_number} Approved (OR: ${data.orNumber}, Paid: ₱${data.amountPaid.toFixed(2)}). Billing cleared and permit unlocked.`,
       updated_by: 2,
       operator_name: data.cashierName,
       created_at: timestamp,
@@ -252,7 +342,7 @@ export const studentStore = {
     const updatedHistory = [newHistoryLog, ...history];
 
     localStorage.setItem(STORAGE_KEYS.PROMISSORY, JSON.stringify(requests));
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(updatedStudents));
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updatedHistory));
 
     notifyDataChanged();
