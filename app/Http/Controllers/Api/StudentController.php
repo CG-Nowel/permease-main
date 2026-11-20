@@ -21,9 +21,13 @@ class StudentController extends Controller
      */
     private function formatStudentPayload(Student $student, ?string $defaultAy = null, ?string $defaultSem = null, ?string $defaultExamPeriod = null): array
     {
-        $student->loadMissing(['billingStatus', 'subjects', 'reprintRequests']);
+        $student->loadMissing(['billingStatus', 'subjects', 'reprintRequests', 'promissoryRequests']);
 
-        $billing = $student->billingStatus;
+        $billing = $student->billingStatus ?? StudentBillingStatus::where('student_id', $student->id)->first();
+        if ($billing && !$student->billing_status_id) {
+            $student->update(['billing_status_id' => $billing->id]);
+        }
+
         $units = $student->subjects->sum('units');
         $isCleared = $billing && $billing->billing_status === 'CLEARED';
 
@@ -45,6 +49,10 @@ class StudentController extends Controller
 
         $printCount = ($hasPrintedInitial ? 1 : 0) + $consumedReprints;
         $reprintAllowed = $isCleared && $activeReprint !== null;
+
+        $activePromissory = $student->promissoryRequests()
+            ->latest('id')
+            ->first();
 
         return [
             'id' => $student->id,
@@ -84,6 +92,31 @@ class StudentController extends Controller
                 'print_count' => $printCount,
                 'reprint_allowed' => $reprintAllowed,
             ],
+            'active_promissory' => $activePromissory ? [
+                'id' => $activePromissory->id,
+                'request_number' => $activePromissory->request_number,
+                'student_id' => $activePromissory->student_id,
+                'student_name' => "{$student->first_name} {$student->last_name}",
+                'student_number' => $student->student_number,
+                'course_program' => "{$student->course} {$student->program}",
+                'year_section' => "{$student->grade_year_level} - {$student->section}",
+                'exam_period' => $activePromissory->exam_period,
+                'academic_year' => $student->academic_year ?? $defaultAy ?? '2026-2027',
+                'semester' => $student->semester ?? $defaultSem ?? '1st Semester',
+                'current_balance' => (float) ($billing ? $billing->current_balance : 0),
+                'amount_payable_now' => (float) $activePromissory->initial_payment,
+                'promissory_amount' => (float) $activePromissory->initial_payment,
+                'amount_paid' => (float) $activePromissory->amount_paid,
+                'reason' => $activePromissory->reason,
+                'promise_to_pay_date' => $activePromissory->promise_to_pay_date ? $activePromissory->promise_to_pay_date->format('Y-m-d') : null,
+                'guarantor_name' => $activePromissory->guarantor_name ?? '',
+                'guarantor_contact' => $activePromissory->guarantor_contact ?? '',
+                'guarantor_relationship' => $activePromissory->guarantor_relationship ?? '',
+                'status' => $activePromissory->status,
+                'official_receipt_number' => $activePromissory->official_receipt_number,
+                'accounting_notes' => $activePromissory->accounting_remarks,
+                'created_at' => $activePromissory->created_at->format('Y-m-d H:i:s'),
+            ] : null,
             'subjects' => $student->subjects,
         ];
     }

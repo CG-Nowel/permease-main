@@ -143,6 +143,7 @@ export const PromissoryRequestPage: React.FC = () => {
 
     try {
       let requestNum = `PN-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      let backendId: number | undefined;
 
       // 1. Backend API Call
       try {
@@ -159,12 +160,17 @@ export const PromissoryRequestPage: React.FC = () => {
         if (response.data?.data?.request_number) {
           requestNum = response.data.data.request_number;
         }
+        if (response.data?.data?.id) {
+          backendId = Number(response.data.data.id);
+        }
       } catch (apiErr: any) {
         console.warn('Backend promissory note sync notice:', apiErr?.response?.data || apiErr?.message);
       }
 
       // 2. Client reactive store update
       const created = createPromissoryRequest({
+        id: backendId,
+        requestNumber: requestNum,
         studentId: selectedStudent.id,
         examPeriod,
         amountPayableNow: numPayment,

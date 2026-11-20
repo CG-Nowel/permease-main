@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AcademicTerm;
+use App\Models\FinancialStatusHistory;
 use App\Models\PromissoryRequest;
 use App\Models\Student;
 use App\Models\StudentBillingStatus;
@@ -34,7 +35,9 @@ class PromissoryController extends Controller
 
         $requests = $query->get()->map(function ($p) use ($activeExamPeriod) {
             $student = $p->student;
-            $billing = $student ? $student->billingStatus : null;
+            $billing = ($student ? $student->billingStatus : null)
+                ?? ($p->billing_status_id ? StudentBillingStatus::find($p->billing_status_id) : null)
+                ?? ($student ? StudentBillingStatus::where('student_id', $student->id)->first() : null);
 
             return [
                 'id' => $p->id,
@@ -226,23 +229,46 @@ class PromissoryController extends Controller
         }
 
         $student = $promissory->student;
-        $billing = $student ? $student->billingStatus : null;
+        if (!$student && $promissory->student_id) {
+            $student = Student::find($promissory->student_id);
+        }
 
-        if (!$student || !$billing) {
+        if (!$student) {
             return response()->json([
                 'success' => false,
-                'message' => 'Associated student billing profile was not found.',
+                'message' => 'Associated student profile was not found.',
             ], 404);
         }
+
+        $billing = ($student ? $student->billingStatus : null)
+            ?? ($promissory->billing_status_id ? StudentBillingStatus::find($promissory->billing_status_id) : null)
+            ?? StudentBillingStatus::where('student_id', $student->id)->first();
 
         $amountPaid = (float) $request->amount_paid;
         $orNumber = trim($request->official_receipt_number);
         $notes = $request->input('accounting_remarks', 'Promissory note approved. Billing cleared for test permit release.');
 
+        // Auto-create billing record if missing
+        if (!$billing) {
+            $billing = StudentBillingStatus::create([
+                'student_id' => $student->id,
+                'total_assessment' => 15500.00,
+                'current_balance' => max(0, 15500.00 - $amountPaid),
+                'total_paid' => $amountPaid,
+                'billing_status' => 'CLEARED',
+                'exam_permit_status' => 'AVAILABLE',
+                'current_exam_period' => AcademicTerm::where('is_active', true)->value('exam_period') ?? 'Prelim',
+                'last_cleared_at' => now(),
+            ]);
+            $student->update(['billing_status_id' => $billing->id]);
+            $promissory->update(['billing_status_id' => $billing->id]);
+        }
+
         // Current accounting user
         $cashierUser = $request->user() ?? User::where('role', 'ACCOUNTING')->first() ?? User::first();
+        $previousBillingStatus = $billing->billing_status ?? 'WITH_BALANCE';
 
-        DB::transaction(function () use ($promissory, $billing, $amountPaid, $orNumber, $notes, $cashierUser) {
+        DB::transaction(function () use ($promissory, $billing, $amountPaid, $orNumber, $notes, $cashierUser, $student, $previousBillingStatus) {
             // 1. Update Promissory record
             $promissory->update([
                 'status' => 'APPROVED',
@@ -263,6 +289,19 @@ class PromissoryController extends Controller
                 'billing_status' => 'CLEARED',
                 'exam_permit_status' => 'AVAILABLE', // Test permit is unlocked for Kiosk printing!
                 'last_cleared_at' => now(),
+            ]);
+
+            if ($student && !$student->billing_status_id) {
+                $student->update(['billing_status_id' => $billing->id]);
+            }
+
+            // 3. Log Financial Clearance History audit trail
+            FinancialStatusHistory::create([
+                'student_id' => $student->id,
+                'previous_status' => $previousBillingStatus,
+                'new_status' => 'CLEARED',
+                'notes' => "Promissory Note {$promissory->request_number} Approved (OR: {$orNumber}, Paid: ₱" . number_format($amountPaid, 2) . "). Test permit unlocked.",
+                'operator_name' => $cashierUser ? $cashierUser->name : 'Accounting Office',
             ]);
         });
 
